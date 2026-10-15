@@ -1,0 +1,12 @@
+openapi: 3.0.3
+info:
+  title: tf-user API
+  version: 0.1.0
+  description: FishMatrix 用户中心服务：账号、设备指纹与 RBAC 权限接口契约（与实现同仓演进）
+paths:
+  /api/v1/user/health:
+    get:
+      summary: 服务健康检查
+      responses:
+        "200":
+          description: 服务正常

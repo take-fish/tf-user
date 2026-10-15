@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: tf-user
+
+server:
+  port: 8101
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
