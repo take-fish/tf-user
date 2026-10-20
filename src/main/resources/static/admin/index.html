@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>用户中台 · FishMatrix</title>
+    <link rel="stylesheet" href="./admin.css" />
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true">
+      <span class="aurora__blob aurora__blob--a"></span>
+      <span class="aurora__blob aurora__blob--b"></span>
+      <span class="aurora__blob aurora__blob--c"></span>
+      <span class="aurora__grid"></span>
+    </div>
+
+    <main class="console" id="console" hidden>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true">◈</span>
+          <div>
+            <h1>用户中台</h1>
+            <p>FISHMATRIX IDENTITY CONSOLE</p>
+          </div>
+        </div>
+        <div class="topbar__right">
+          <span class="who" id="adminName"></span>
+          <button class="ghost" id="logoutBtn" type="button">退出</button>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="用户统计">
+        <button class="stat" data-status="" type="button">
+          <span class="stat__label">全部用户</span>
+          <b data-stat="total">–</b>
+          <span class="stat__hint">已登记的身份</span>
+        </button>
+        <button class="stat stat--pending" data-status="PENDING" type="button">
+          <span class="stat__label">等待通过</span>
+          <b data-stat="pending">–</b>
+          <span class="stat__hint">待人工审批</span>
+        </button>
+        <button class="stat" data-status="ACTIVE" type="button">
+          <span class="stat__label">已通过</span>
+          <b data-stat="active">–</b>
+          <span class="stat__hint">可正常登录</span>
+        </button>
+        <button class="stat" data-status="REJECTED" type="button">
+          <span class="stat__label">已拒绝</span>
+          <b data-stat="rejected">–</b>
+          <span class="stat__hint">申请未通过</span>
+        </button>
+        <button class="stat" data-status="DISABLED" type="button">
+          <span class="stat__label">已停用</span>
+          <b data-stat="disabled">–</b>
+          <span class="stat__hint">暂时无法登录</span>
+        </button>
+      </section>
+
+      <section class="panel">
+        <div class="toolbar">
+          <div class="filters" id="filters" role="group" aria-label="状态筛选">
+            <button data-status="" type="button" class="is-active">全部</button>
+            <button data-status="PENDING" type="button">待审批</button>
+            <button data-status="ACTIVE" type="button">已通过</button>
+            <button data-status="REJECTED" type="button">已拒绝</button>
+            <button data-status="DISABLED" type="button">已停用</button>
+          </div>
+          <label class="search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="搜索名号"
+              maxlength="32"
+              autocomplete="off"
+            />
+          </label>
+          <button class="ghost" id="refreshBtn" type="button">刷新</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>名号</th>
+                <th>状态</th>
+                <th>角色</th>
+                <th>登记时间</th>
+                <th>审批记录</th>
+                <th>最近登录</th>
+                <th class="col-actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="userRows"></tbody>
+          </table>
+          <div class="empty" id="emptyState" hidden>
+            <span aria-hidden="true">◇</span>
+            <p>这里还没有相符的用户</p>
+          </div>
+        </div>
+
+        <footer class="pager">
+          <span id="pageInfo">–</span>
+          <div class="pager__actions">
+            <button class="ghost" id="prevBtn" type="button">上一页</button>
+            <button class="ghost" id="nextBtn" type="button">下一页</button>
+          </div>
+        </footer>
+      </section>
+
+      <footer class="console-foot">
+        <span>FishMatrix · 用户中台</span>
+        <span id="refreshHint">每 30 秒自动刷新审批队列</span>
+      </footer>
+    </main>
+
+    <div class="login-layer" id="loginLayer">
+      <form class="login-card" id="loginForm" autocomplete="off">
+        <span class="login-card__mark" aria-hidden="true">◈</span>
+        <h2>用户中台</h2>
+        <p class="login-card__sub">仅管理员可进入审批队列</p>
+        <label>
+          <span>管理员名号</span>
+          <input
+            id="loginUsername"
+            type="text"
+            maxlength="32"
+            autocomplete="username"
+            placeholder="admin"
+            required
+          />
+        </label>
+        <label>
+          <span>口号</span>
+          <input
+            id="loginPassword"
+            type="password"
+            maxlength="64"
+            autocomplete="current-password"
+            placeholder="••••••••"
+            required
+          />
+        </label>
+        <p class="form-error" id="loginError" role="alert"></p>
+        <button class="primary" id="loginBtn" type="submit">进入中台</button>
+        <a class="login-card__back" href="/">← 返回 FishMatrix</a>
+      </form>
+    </div>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+
+    <script src="./admin.js" defer></script>
+  </body>
+</html>

@@ -1,12 +1,227 @@
 openapi: 3.0.3
 info:
   title: tf-user API
-  version: 0.1.0
-  description: FishMatrix 用户中心服务：账号、设备指纹与 RBAC 权限接口契约（与实现同仓演进）
+  version: 0.2.0
+  description: FishMatrix 用户中心服务：账号注册/登录、会话与用户中台审批接口。
+servers:
+  - url: /api/v1/user
+security:
+  - bearerAuth: []
 paths:
-  /api/v1/user/health:
+  /health:
     get:
       summary: 服务健康检查
+      security: []
       responses:
         "200":
           description: 服务正常
+
+  /auth/register:
+    post:
+      summary: 注册（注册后进入待审批状态）
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "201":
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: PENDING }
+                  message: { type: string, example: 等待通过中 }
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /auth/login:
+    post:
+      summary: 登录（仅 ACTIVE 用户可获取 token）
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          description: PENDING_APPROVAL / REJECTED / DISABLED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/me:
+    get:
+      summary: 当前登录用户
+      responses:
+        "200":
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /auth/logout:
+    post:
+      summary: 退出登录
+      responses:
+        "204":
+          description: 已注销
+
+  /admin/users:
+    get:
+      summary: 用户列表与统计（仅管理员）
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [PENDING, ACTIVE, REJECTED, DISABLED] } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: size, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        "200":
+          description: 用户分页
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  page: { type: integer }
+                  size: { type: integer }
+                  total: { type: integer }
+                  stats:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      pending: { type: integer }
+                      active: { type: integer }
+                      rejected: { type: integer }
+                      disabled: { type: integer }
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /admin/users/{id}/approve:
+    post:
+      summary: 通过审批（仅管理员）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: 更新后的用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /admin/users/{id}/reject:
+    post:
+      summary: 拒绝审批（仅管理员）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: 更新后的用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /admin/users/{id}/disable:
+    post:
+      summary: 停用（仅管理员）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: 更新后的用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /admin/users/{id}/enable:
+    post:
+      summary: 启用（仅管理员）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: 更新后的用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          $ref: "#/components/responses/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 2, maxLength: 32 }
+        password: { type: string, format: password, minLength: 6, maxLength: 64 }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        nickname: { type: string }
+        role: { type: string, enum: [USER, ADMIN] }
+        status: { type: string, enum: [PENDING, ACTIVE, REJECTED, DISABLED] }
+        createdAt: { type: string, format: date-time }
+        approvedAt: { type: string, format: date-time, nullable: true }
+        approvedBy: { type: string, nullable: true }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+  responses:
+    Error:
+      description: 错误响应
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

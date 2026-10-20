@@ -1,9 +1,23 @@
 # tf-user
 
-FishMatrix（摸鱼矩阵）用户中心服务：账号、设备指纹与 RBAC 权限 —— Spring Boot 3 + JDK 17。
+FishMatrix（摸鱼矩阵）用户中心服务：账号注册/登录、审批、会话与用户中台 —— Spring Boot 3 + JDK 17。
 
 - 端口：`8101`
 - 健康检查：`GET /actuator/health`、`GET /api/v1/user/health`
+- 用户中台：`GET /admin/`（直连）或经网关 `GET /api/v1/user/admin/index.html`
+- 认证接口：`/api/v1/user/auth/{register,login,me,logout}`，请求头 `Authorization: Bearer <token>`
+- 管理接口：`/api/v1/user/admin/users`（仅 ADMIN），审批/拒绝/停用/启用
+- 账号表：`user_account`（启动时由 `schema.sql` 幂等创建）；会话：Redis `fm:user:session:*`
+
+管理员由启动参数初始化：
+
+```bash
+export USER_ADMIN_USERNAME=admin
+export USER_ADMIN_PASSWORD=<至少 6 位>
+# 密码留空则跳过初始化并打印警告；已有管理员会同步密码并恢复为 ACTIVE
+```
+
+生产/测试请分别使用 `scripts/ensure-user-admin-secrets.sh`（位于 tf-deploy）生成到 `.env`。
 
 ## 本地开发
 
