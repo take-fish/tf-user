@@ -26,9 +26,20 @@ spring:
       host: ${REDIS_HOST:10.28.13.214}
       port: ${REDIS_PORT:6379}
       database: ${REDIS_DATABASE:0}
+  sql:
+    init:
+      mode: ${SQL_INIT_MODE:always}
+      encoding: UTF-8
 
 server:
   port: 8101
+
+fm:
+  user:
+    session-ttl-hours: ${USER_SESSION_TTL_HOURS:168}
+    admin:
+      username: ${USER_ADMIN_USERNAME:admin}
+      password: ${USER_ADMIN_PASSWORD:}
 
 management:
   endpoints:
