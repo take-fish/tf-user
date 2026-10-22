@@ -48,6 +48,10 @@ app:
   version: ${APP_VERSION:dev}
 
 fm:
+  common:
+    error:
+      service-unavailable-code: USER_UNAVAILABLE
+      service-unavailable-message: 用户服务暂不可用
   user:
     session-ttl-hours: ${USER_SESSION_TTL_HOURS:168}
     admin:
@@ -57,6 +61,12 @@ fm:
       seed-enabled: ${USER_ADMIN_SEED_ENABLED:false}
 
 management:
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+    propagation:
+      type: W3C
   endpoints:
     web:
       exposure:
