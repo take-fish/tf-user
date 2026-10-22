@@ -1,6 +1,10 @@
 spring:
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
   application:
     name: tf-user
+  lifecycle:
+    timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:20s}
   cloud:
     nacos:
       server-addr: ${NACOS_ADDR:10.28.13.214:8848}
@@ -9,6 +13,9 @@ spring:
         username: ${NACOS_USERNAME:nacos}
         password: ${NACOS_PASSWORD:}
         fail-fast: false
+        metadata:
+          version: ${APP_VERSION:dev}
+          git-commit: ${GIT_COMMIT:unknown}
       config:
         namespace: ${NACOS_NAMESPACE:fm-prod}
         group: FM
@@ -19,7 +26,7 @@ spring:
           enabled: false
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:10.28.13.214}:${MYSQL_PORT:3306}/${MYSQL_DB:fm_user}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${MYSQL_APP_USER:fm_app}
+    username: ${MYSQL_APP_USER:fm_user_app}
     password: ${MYSQL_APP_PASSWORD:}
   data:
     redis:
@@ -28,11 +35,12 @@ spring:
       database: ${REDIS_DATABASE:0}
   sql:
     init:
-      mode: ${SQL_INIT_MODE:always}
+      mode: ${SQL_INIT_MODE:never}
       encoding: UTF-8
 
 server:
   port: 8101
+  shutdown: graceful
 
 fm:
   user:
@@ -40,6 +48,8 @@ fm:
     admin:
       username: ${USER_ADMIN_USERNAME:admin}
       password: ${USER_ADMIN_PASSWORD:}
+      # 生产默认关闭启动时自动同步；测试/首次初始化显式设为 true
+      seed-enabled: ${USER_ADMIN_SEED_ENABLED:false}
 
 management:
   endpoints:

@@ -22,18 +22,25 @@ public class AdminSeeder implements ApplicationRunner {
     private final PasswordEncoder passwordEncoder;
     private final String username;
     private final String password;
+    private final boolean seedEnabled;
 
     public AdminSeeder(UserRepository users, PasswordEncoder passwordEncoder,
             @Value("${fm.user.admin.username:admin}") String username,
-            @Value("${fm.user.admin.password:}") String password) {
+            @Value("${fm.user.admin.password:}") String password,
+            @Value("${fm.user.admin.seed-enabled:false}") boolean seedEnabled) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.username = UserValidation.normalizeUsername(username);
         this.password = password == null ? "" : password;
+        this.seedEnabled = seedEnabled;
     }
 
     @Override
     public void run(ApplicationArguments args) {
+        if (!seedEnabled) {
+            log.info("管理员自动同步已关闭（fm.user.admin.seed-enabled=false）");
+            return;
+        }
         if (password.isBlank()) {
             log.warn("USER_ADMIN_PASSWORD 未配置：跳过管理员初始化，用户中台暂时无法审批账号");
             return;
