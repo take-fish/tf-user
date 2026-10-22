@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS user_account (
+CREATE TABLE user_account (
     id BIGINT NOT NULL AUTO_INCREMENT,
     username VARCHAR(32) NOT NULL,
     password_hash VARCHAR(100) NOT NULL,
