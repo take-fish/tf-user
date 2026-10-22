@@ -7,14 +7,17 @@ FishMatrix（摸鱼矩阵）用户中心服务：账号注册/登录、审批、
 - 用户中台：`GET /admin/`（直连）或经网关 `GET /api/v1/user/admin/index.html`
 - 认证接口：`/api/v1/user/auth/{register,login,me,logout}`，请求头 `Authorization: Bearer <token>`
 - 管理接口：`/api/v1/user/admin/users`（仅 ADMIN），审批/拒绝/停用/启用
-- 账号表：`user_account`（启动时由 `schema.sql` 幂等创建）；会话：Redis `fm:user:session:*`
+- 账号表：`user_account`（由 Flyway `db/migration/V1__baseline.sql` 创建）；会话：Redis `fm:user:session:*`
+- 业务容器默认 `SPRING_FLYWAY_ENABLED=false`、`SQL_INIT_MODE=never`，表结构由独立迁移任务管理
 
-管理员由启动参数初始化：
+管理员初始化受开关控制，默认关闭：
 
 ```bash
 export USER_ADMIN_USERNAME=admin
 export USER_ADMIN_PASSWORD=<至少 6 位>
-# 密码留空则跳过初始化并打印警告；已有管理员会同步密码并恢复为 ACTIVE
+export USER_ADMIN_SEED_ENABLED=true
+# 仅当 seed-enabled=true 时执行：不存在则创建，已存在则同步密码并恢复 ACTIVE；
+# 关闭时启动日志会提示“管理员自动同步已关闭”，不写库。
 ```
 
 生产/测试请分别使用 `scripts/ensure-user-admin-secrets.sh`（位于 tf-deploy）生成到 `.env`。
