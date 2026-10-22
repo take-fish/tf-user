@@ -1,6 +1,6 @@
 package com.fishmatrix.user.service;
 
-import com.fishmatrix.user.model.ApiException;
+import com.fishmatrix.common.error.ApiException;
 import com.fishmatrix.user.model.UserAccount;
 import com.fishmatrix.user.repository.UserRepository;
 import org.springframework.http.HttpStatus;

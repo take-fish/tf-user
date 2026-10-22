@@ -1,6 +1,6 @@
 package com.fishmatrix.user.service;
 
-import com.fishmatrix.user.model.ApiException;
+import com.fishmatrix.common.error.ApiException;
 import com.fishmatrix.user.model.LoginRequest;
 import com.fishmatrix.user.model.LoginResult;
 import com.fishmatrix.user.model.RegisterRequest;
