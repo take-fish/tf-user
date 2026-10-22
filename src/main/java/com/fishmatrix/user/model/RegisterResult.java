@@ -1,4 +1,4 @@
 package com.fishmatrix.user.model;
 
-public record RegisterResult(String status, String message) {
+public record RegisterResult(long id, String status, String message) {
 }

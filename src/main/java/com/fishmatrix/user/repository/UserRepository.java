@@ -142,8 +142,20 @@ public class UserRepository {
             params.add(status);
         }
         if (query != null && !query.isBlank()) {
-            where.append(" AND username LIKE ?");
-            params.add("%" + query.trim() + "%");
+            String keyword = query.trim();
+            if (keyword.startsWith("#")) {
+                keyword = keyword.substring(1);
+            }
+            where.append(" AND (username LIKE ?");
+            params.add("%" + keyword + "%");
+            try {
+                long id = Long.parseLong(keyword);
+                where.append(" OR id = ?");
+                params.add(id);
+            } catch (NumberFormatException ignored) {
+                // 非数字关键字只按名号搜索
+            }
+            where.append(")");
         }
         return where.toString();
     }

@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserAccountService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserAccountService.class);
 
     private static final Set<String> STATUSES = Set.of(
             UserAccount.STATUS_PENDING,
@@ -51,14 +55,17 @@ public class UserAccountService {
             throw new ApiException(HttpStatus.CONFLICT, "USERNAME_TAKEN", "这个名号已经有人用了");
         }
 
+        long id;
         try {
-            users.insert(username, passwordEncoder.encode(password), username,
+            id = users.insert(username, passwordEncoder.encode(password), username,
                     UserAccount.ROLE_USER, UserAccount.STATUS_PENDING, LocalDateTime.now());
         } catch (DuplicateKeyException exception) {
             throw new ApiException(HttpStatus.CONFLICT, "USERNAME_TAKEN", "这个名号已经有人用了");
         }
 
-        return new RegisterResult(UserAccount.STATUS_PENDING, "等待通过中");
+        log.info("user registration queued id={} username={} status={}",
+                id, username, UserAccount.STATUS_PENDING);
+        return new RegisterResult(id, UserAccount.STATUS_PENDING, "等待通过中");
     }
 
     @Transactional

@@ -54,9 +54,12 @@ class UserAccountServiceTests {
     void registersPendingUser() {
         when(users.existsByUsername("小明")).thenReturn(false);
         when(passwordEncoder.encode("secret12")).thenReturn("hash");
+        when(users.insert(eq("小明"), eq("hash"), eq("小明"), eq("USER"), eq("PENDING"),
+                any(LocalDateTime.class))).thenReturn(7L);
 
         RegisterResult result = service.register(new RegisterRequest(" 小明 ", "secret12"));
 
+        assertEquals(7L, result.id());
         assertEquals("PENDING", result.status());
         assertEquals("等待通过中", result.message());
         verify(users).insert(eq("小明"), eq("hash"), eq("小明"), eq("USER"), eq("PENDING"),

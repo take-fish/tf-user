@@ -42,6 +42,11 @@ server:
   port: 8101
   shutdown: graceful
 
+app:
+  # 运行环境标识：生产/测试栈分别设置为 production/test，登录页和中台会明确展示
+  environment: ${APP_ENV:production}
+  version: ${APP_VERSION:dev}
+
 fm:
   user:
     session-ttl-hours: ${USER_SESSION_TTL_HOURS:168}
