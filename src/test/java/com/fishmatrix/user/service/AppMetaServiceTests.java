@@ -25,11 +25,12 @@ class AppMetaServiceTests {
     void infersTestEnvironmentFromDatabaseWhenValueMissing() {
         AppMeta meta = new AppMetaService(
                 "",
-                "jdbc:mysql://db/fm_test_user",
+                "jdbc:mysql://db/fm_test_user?useUnicode=true&serverTimezone=Asia/Shanghai&useSSL=false",
                 "",
                 "dev").current();
 
         assertEquals("test", meta.environment());
+        assertEquals("fm_test_user", meta.database());
     }
 
     @Test

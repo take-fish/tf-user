@@ -53,11 +53,12 @@ public class AppMetaService {
         if (url == null || url.isBlank()) {
             return "";
         }
-        int slash = url.lastIndexOf('/');
-        if (slash < 0 || slash == url.length() - 1) {
+        int query = url.indexOf('?');
+        String base = query < 0 ? url : url.substring(0, query);
+        int slash = base.lastIndexOf('/');
+        if (slash < 0 || slash == base.length() - 1) {
             return "";
         }
-        int end = url.indexOf('?', slash);
-        return end < 0 ? url.substring(slash + 1) : url.substring(slash + 1, end);
+        return base.substring(slash + 1);
     }
 }
