@@ -11,7 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fishmatrix.user.model.ApiException;
+import com.fishmatrix.common.error.ApiException;
 import com.fishmatrix.user.model.LoginRequest;
 import com.fishmatrix.user.model.LoginResult;
 import com.fishmatrix.user.model.RegisterRequest;
