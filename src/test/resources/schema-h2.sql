@@ -13,3 +13,19 @@ CREATE TABLE IF NOT EXISTS user_account (
     PRIMARY KEY (id),
     UNIQUE (username)
 );
+
+CREATE TABLE IF NOT EXISTS auth_permission (
+    code VARCHAR(64) NOT NULL,
+    name VARCHAR(64) NOT NULL,
+    module VARCHAR(32) NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    created_at TIMESTAMP(3) NOT NULL,
+    PRIMARY KEY (code)
+);
+
+CREATE TABLE IF NOT EXISTS auth_role_permission (
+    role VARCHAR(16) NOT NULL,
+    permission_code VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP(3) NOT NULL,
+    PRIMARY KEY (role, permission_code)
+);

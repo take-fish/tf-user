@@ -1,13 +1,20 @@
 package com.fishmatrix.user.controller;
 
+import com.fishmatrix.user.auth.PermissionCodes;
+import com.fishmatrix.user.model.PermissionCatalogView;
+import com.fishmatrix.user.model.RolePermissionsView;
+import com.fishmatrix.user.model.UpdateRolePermissionsRequest;
 import com.fishmatrix.user.model.UserAccount;
 import com.fishmatrix.user.model.UserPage;
 import com.fishmatrix.user.model.UserView;
 import com.fishmatrix.user.service.AuthService;
+import com.fishmatrix.user.service.PermissionService;
 import com.fishmatrix.user.service.UserAccountService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,10 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final UserAccountService accounts;
+    private final PermissionService permissions;
     private final AuthService auth;
 
-    public AdminController(UserAccountService accounts, AuthService auth) {
+    public AdminController(UserAccountService accounts, PermissionService permissions,
+            AuthService auth) {
         this.accounts = accounts;
+        this.permissions = permissions;
         this.auth = auth;
     }
 
@@ -62,6 +72,24 @@ public class AdminController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @PathVariable long id) {
         return change(authorization, id, "enable");
+    }
+
+    @GetMapping("/permissions")
+    public PermissionCatalogView permissions(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        auth.requireAdmin(authorization);
+        return permissions.catalog();
+    }
+
+    @PutMapping("/roles/{role}/permissions")
+    public RolePermissionsView updateRolePermissions(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String role,
+            @RequestBody UpdateRolePermissionsRequest request) {
+        UserAccount admin = auth.requirePermission(authorization,
+                PermissionCodes.USER_ROLE_MANAGE);
+        return permissions.updateRole(role,
+                request == null ? null : request.permissions(), admin);
     }
 
     private UserView change(String authorization, long id, String action) {

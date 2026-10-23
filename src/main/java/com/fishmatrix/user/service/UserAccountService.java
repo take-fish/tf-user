@@ -36,12 +36,14 @@ public class UserAccountService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessions;
+    private final PermissionService permissions;
 
     public UserAccountService(UserRepository users, PasswordEncoder passwordEncoder,
-            SessionService sessions) {
+            SessionService sessions, PermissionService permissions) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.sessions = sessions;
+        this.permissions = permissions;
     }
 
     @Transactional
@@ -95,7 +97,7 @@ public class UserAccountService {
 
         users.touchLastLogin(account.id(), LocalDateTime.now());
         String token = sessions.create(account.id(), account.role());
-        return new LoginResult(token, account.toView());
+        return new LoginResult(token, permissions.view(account));
     }
 
     public UserPage listUsers(String status, String query, int page, int size) {
@@ -110,7 +112,7 @@ public class UserAccountService {
 
         List<UserView> items = users.search(normalizedStatus, query, safeSize, offset)
                 .stream()
-                .map(UserAccount::toView)
+                .map(permissions::view)
                 .toList();
         long total = users.count(normalizedStatus, query);
         return new UserPage(items, safePage, safeSize, total, stats());
@@ -148,7 +150,7 @@ public class UserAccountService {
                     HttpStatus.BAD_REQUEST, "BAD_ACTION", "不支持的操作：" + action);
         }
 
-        return users.findById(target.id()).map(UserAccount::toView).orElseThrow();
+        return users.findById(target.id()).map(permissions::view).orElseThrow();
     }
 
     public UserStats stats() {
