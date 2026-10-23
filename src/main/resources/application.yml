@@ -48,6 +48,9 @@ app:
   version: ${APP_VERSION:dev}
 
 fm:
+  # 用户中台是身份事实来源，不能再经过统一鉴权拦截器调用自己
+  auth:
+    enabled: false
   common:
     error:
       service-unavailable-code: USER_UNAVAILABLE

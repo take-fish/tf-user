@@ -35,84 +35,161 @@
         </div>
       </header>
 
-      <section class="stats" aria-label="用户统计">
-        <button class="stat" data-status="" type="button">
-          <span class="stat__label">全部用户</span>
-          <b data-stat="total">–</b>
-          <span class="stat__hint">已登记的身份</span>
+      <nav class="tabs" id="consoleTabs" role="tablist" aria-label="中台功能">
+        <button
+          class="tabs__item is-active"
+          id="usersTab"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="usersView"
+          data-tab="users"
+        >
+          用户审批
         </button>
-        <button class="stat stat--pending" data-status="PENDING" type="button">
-          <span class="stat__label">等待通过</span>
-          <b data-stat="pending">–</b>
-          <span class="stat__hint">待人工审批</span>
+        <button
+          class="tabs__item"
+          id="permissionsTab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="permissionsView"
+          data-tab="permissions"
+        >
+          角色权限
         </button>
-        <button class="stat" data-status="ACTIVE" type="button">
-          <span class="stat__label">已通过</span>
-          <b data-stat="active">–</b>
-          <span class="stat__hint">可正常登录</span>
-        </button>
-        <button class="stat" data-status="REJECTED" type="button">
-          <span class="stat__label">已拒绝</span>
-          <b data-stat="rejected">–</b>
-          <span class="stat__hint">申请未通过</span>
-        </button>
-        <button class="stat" data-status="DISABLED" type="button">
-          <span class="stat__label">已停用</span>
-          <b data-stat="disabled">–</b>
-          <span class="stat__hint">暂时无法登录</span>
-        </button>
-      </section>
+      </nav>
 
-      <section class="panel">
+      <div class="view" id="usersView" role="tabpanel" aria-labelledby="usersTab">
+        <section class="stats" aria-label="用户统计">
+          <button class="stat" data-status="" type="button">
+            <span class="stat__label">全部用户</span>
+            <b data-stat="total">–</b>
+            <span class="stat__hint">已登记的身份</span>
+          </button>
+          <button class="stat stat--pending" data-status="PENDING" type="button">
+            <span class="stat__label">等待通过</span>
+            <b data-stat="pending">–</b>
+            <span class="stat__hint">待人工审批</span>
+          </button>
+          <button class="stat" data-status="ACTIVE" type="button">
+            <span class="stat__label">已通过</span>
+            <b data-stat="active">–</b>
+            <span class="stat__hint">可正常登录</span>
+          </button>
+          <button class="stat" data-status="REJECTED" type="button">
+            <span class="stat__label">已拒绝</span>
+            <b data-stat="rejected">–</b>
+            <span class="stat__hint">申请未通过</span>
+          </button>
+          <button class="stat" data-status="DISABLED" type="button">
+            <span class="stat__label">已停用</span>
+            <b data-stat="disabled">–</b>
+            <span class="stat__hint">暂时无法登录</span>
+          </button>
+        </section>
+
+        <section class="panel">
+          <div class="toolbar">
+            <div class="filters" id="filters" role="group" aria-label="状态筛选">
+              <button data-status="" type="button" class="is-active">全部</button>
+              <button data-status="PENDING" type="button">待审批</button>
+              <button data-status="ACTIVE" type="button">已通过</button>
+              <button data-status="REJECTED" type="button">已拒绝</button>
+              <button data-status="DISABLED" type="button">已停用</button>
+            </div>
+            <label class="search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                id="searchInput"
+                type="search"
+                placeholder="搜索名号或编号"
+                maxlength="32"
+                autocomplete="off"
+              />
+            </label>
+            <button class="ghost" id="refreshBtn" type="button">刷新</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>名号</th>
+                  <th>状态</th>
+                  <th>角色</th>
+                  <th>登记时间</th>
+                  <th>审批记录</th>
+                  <th>最近登录</th>
+                  <th class="col-actions">操作</th>
+                </tr>
+              </thead>
+              <tbody id="userRows"></tbody>
+            </table>
+            <div class="empty" id="emptyState" hidden>
+              <span aria-hidden="true">◇</span>
+              <p>这里还没有相符的用户</p>
+            </div>
+          </div>
+
+          <footer class="pager">
+            <span id="pageInfo">–</span>
+            <div class="pager__actions">
+              <button class="ghost" id="prevBtn" type="button">上一页</button>
+              <button class="ghost" id="nextBtn" type="button">下一页</button>
+            </div>
+          </footer>
+        </section>
+      </div>
+
+      <section
+        class="panel permissions"
+        id="permissionsView"
+        role="tabpanel"
+        aria-labelledby="permissionsTab"
+        hidden
+      >
         <div class="toolbar">
-          <div class="filters" id="filters" role="group" aria-label="状态筛选">
-            <button data-status="" type="button" class="is-active">全部</button>
-            <button data-status="PENDING" type="button">待审批</button>
-            <button data-status="ACTIVE" type="button">已通过</button>
-            <button data-status="REJECTED" type="button">已拒绝</button>
-            <button data-status="DISABLED" type="button">已停用</button>
+          <div class="toolbar__title">
+            <h2>角色权限</h2>
+            <p>权限只在用户中台维护，各服务通过身份头读取快照。</p>
           </div>
-          <label class="search">
-            <span aria-hidden="true">⌕</span>
-            <input
-              id="searchInput"
-              type="search"
-              placeholder="搜索名号或编号"
-              maxlength="32"
-              autocomplete="off"
-            />
-          </label>
-          <button class="ghost" id="refreshBtn" type="button">刷新</button>
+          <button class="ghost" id="permRefreshBtn" type="button">刷新目录</button>
         </div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>名号</th>
-                <th>状态</th>
-                <th>角色</th>
-                <th>登记时间</th>
-                <th>审批记录</th>
-                <th>最近登录</th>
-                <th class="col-actions">操作</th>
-              </tr>
-            </thead>
-            <tbody id="userRows"></tbody>
-          </table>
-          <div class="empty" id="emptyState" hidden>
-            <span aria-hidden="true">◇</span>
-            <p>这里还没有相符的用户</p>
+        <div class="perm-layout">
+          <aside class="perm-roles">
+            <p class="perm-roles__label">角色</p>
+            <div class="perm-roles__list" id="roleList" role="listbox" aria-label="角色列表"></div>
+          </aside>
+
+          <div class="perm-main">
+            <header class="perm-main__head">
+              <div>
+                <h3 id="permRoleTitle">–</h3>
+                <p id="permRoleHint">选择左侧角色查看授权</p>
+              </div>
+              <span class="perm-count" id="permCount">–</span>
+            </header>
+
+            <div class="perm-groups" id="permissionGroups"></div>
+
+            <div class="perm-empty" id="permEmpty" hidden>
+              <span aria-hidden="true">◇</span>
+              <p>还没有加载权限目录</p>
+            </div>
+
+            <footer class="perm-foot">
+              <span class="perm-status" id="permStatus" role="status"></span>
+              <div class="perm-actions">
+                <button class="ghost" id="permResetBtn" type="button" disabled>撤销改动</button>
+                <button class="primary perm-save" id="permSaveBtn" type="button" disabled>
+                  保存授权
+                </button>
+              </div>
+            </footer>
           </div>
         </div>
-
-        <footer class="pager">
-          <span id="pageInfo">–</span>
-          <div class="pager__actions">
-            <button class="ghost" id="prevBtn" type="button">上一页</button>
-            <button class="ghost" id="nextBtn" type="button">下一页</button>
-          </div>
-        </footer>
       </section>
 
       <footer class="console-foot">

@@ -27,6 +27,8 @@ app:
   version: test
 
 fm:
+  auth:
+    enabled: false
   user:
     session-ttl-hours: 168
     admin:
