@@ -1,6 +1,7 @@
 package com.fishmatrix.user.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record UserAccount(
         long id,
@@ -32,7 +33,11 @@ public record UserAccount(
     }
 
     public UserView toView() {
+        return toView(List.of(role), List.of());
+    }
+
+    public UserView toView(List<String> roles, List<String> permissions) {
         return new UserView(id, username, nickname, role, status, createdAt, approvedAt, approvedBy,
-                lastLoginAt);
+                lastLoginAt, roles, permissions);
     }
 }

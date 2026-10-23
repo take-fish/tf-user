@@ -98,6 +98,17 @@ const state = {
   meta: null,
   recentlyUpdatedId: null,
   loadSeq: 0,
+  tab: 'users',
+  permissions: {
+    loaded: false,
+    loading: false,
+    loadSeq: 0,
+    catalog: null,
+    role: 'USER',
+    drafts: new Map(),
+    saving: false,
+    error: '',
+  },
   review: {
     open: false,
     busy: false,
@@ -125,6 +136,19 @@ const el = {
   envLabel: document.getElementById('envLabel'),
   envDetail: document.getElementById('envDetail'),
   loginEnv: document.getElementById('loginEnv'),
+  consoleTabs: document.getElementById('consoleTabs'),
+  usersView: document.getElementById('usersView'),
+  permissionsView: document.getElementById('permissionsView'),
+  permRefreshBtn: document.getElementById('permRefreshBtn'),
+  roleList: document.getElementById('roleList'),
+  permRoleTitle: document.getElementById('permRoleTitle'),
+  permRoleHint: document.getElementById('permRoleHint'),
+  permCount: document.getElementById('permCount'),
+  permissionGroups: document.getElementById('permissionGroups'),
+  permEmpty: document.getElementById('permEmpty'),
+  permStatus: document.getElementById('permStatus'),
+  permResetBtn: document.getElementById('permResetBtn'),
+  permSaveBtn: document.getElementById('permSaveBtn'),
   stats: document.querySelectorAll('[data-stat]'),
   filters: document.getElementById('filters'),
   searchInput: document.getElementById('searchInput'),
@@ -328,7 +352,14 @@ function signOut(notify = true) {
   state.token = '';
   state.user = null;
   state.items = [];
+  state.permissions.loadSeq += 1;
+  state.permissions.loading = false;
+  state.permissions.loaded = false;
+  state.permissions.catalog = null;
+  state.permissions.drafts = new Map();
+  state.permissions.saving = false;
   writeToken('');
+  switchTab('users');
   showLogin();
   if (notify) {
     toast({
@@ -680,6 +711,7 @@ async function login(event) {
     el.adminName.textContent = `管理员 · ${result.user.username}`;
     el.loginPassword.value = '';
     showConsole();
+    switchTab('users');
     await loadUsers();
     startAutoRefresh();
   } catch (error) {
@@ -902,12 +934,344 @@ function scheduleSearch() {
   }, 300);
 }
 
+/* ── 角色权限 ── */
+
+const MODULE_LABELS = {
+  user: '用户中台',
+  chat: '聊天',
+  reader: '阅读',
+  music: '音乐',
+};
+
+const ROLE_NOTES = {
+  ADMIN: '管理员始终拥有完整目录，新增权限会自动包含，无需单独裁剪。',
+  USER: '普通用户默认可以上传公共内容、管理自己的私有内容；保存后在下一次身份刷新时生效。',
+};
+
+function switchTab(tab) {
+  state.tab = tab === 'permissions' ? 'permissions' : 'users';
+  el.consoleTabs.querySelectorAll('button[data-tab]').forEach((button) => {
+    const active = button.dataset.tab === state.tab;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  el.usersView.hidden = state.tab !== 'users';
+  el.permissionsView.hidden = state.tab !== 'permissions';
+  el.refreshHint.textContent =
+    state.tab === 'users' ? '每 10 秒自动刷新审批队列' : '权限目录按需刷新';
+
+  if (state.tab === 'permissions' && !state.permissions.loaded) {
+    void loadPermissionCatalog();
+  }
+}
+
+function canManageRoles() {
+  return Boolean(
+    state.user?.role === 'ADMIN' || state.user?.permissions?.includes('user.role.manage'),
+  );
+}
+
+function findRole(role) {
+  return state.permissions.catalog?.roles?.find((item) => item.role === role) ?? null;
+}
+
+function selectedRole() {
+  return findRole(state.permissions.role);
+}
+
+function roleDraft(roleView) {
+  if (!state.permissions.drafts.has(roleView.role)) {
+    state.permissions.drafts.set(roleView.role, new Set(roleView.permissions));
+  }
+  return state.permissions.drafts.get(roleView.role);
+}
+
+function sameCodes(a, b) {
+  if (a.size !== b.length) return false;
+  return b.every((code) => a.has(code));
+}
+
+function isDirtyRole(roleView) {
+  const draft = state.permissions.drafts.get(roleView.role);
+  return Boolean(draft && !sameCodes(draft, roleView.permissions));
+}
+
+function isEditableRole(roleView) {
+  return Boolean(roleView && roleView.role !== 'ADMIN' && canManageRoles());
+}
+
+function setPermStatus(text, tone = '') {
+  el.permStatus.textContent = text;
+  if (tone) el.permStatus.dataset.tone = tone;
+  else delete el.permStatus.dataset.tone;
+}
+
+function syncPermControls() {
+  const roleView = selectedRole();
+  const editable = isEditableRole(roleView);
+  const dirty = roleView ? isDirtyRole(roleView) : false;
+  const busy = state.permissions.saving;
+
+  el.permSaveBtn.disabled = !editable || !dirty || busy;
+  el.permResetBtn.disabled = !editable || !dirty || busy;
+
+  if (!roleView) {
+    el.permCount.textContent = '–';
+  } else if (dirty) {
+    const draft = roleDraft(roleView);
+    el.permCount.textContent = `已授权 ${draft.size} / ${state.permissions.catalog.permissions.length} · 未保存`;
+  } else {
+    el.permCount.textContent = `已授权 ${roleView.permissions.length} / ${
+      state.permissions.catalog.permissions.length
+    }`;
+  }
+  renderRoleList();
+}
+
+function renderRoleList() {
+  const catalog = state.permissions.catalog;
+  el.roleList.textContent = '';
+  if (!catalog) return;
+
+  const fragment = document.createDocumentFragment();
+  catalog.roles.forEach((roleView) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'role-chip';
+    button.setAttribute('role', 'option');
+    const active = roleView.role === state.permissions.role;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.dataset.role = roleView.role;
+
+    const name = document.createElement('span');
+    name.className = 'role-chip__name';
+    name.textContent = roleView.label;
+
+    const code = document.createElement('span');
+    code.className = 'role-chip__code';
+    code.textContent = roleView.role;
+
+    const count = document.createElement('span');
+    count.className = 'role-chip__count';
+    count.textContent = String(roleView.permissions.length);
+
+    button.append(name, code, count);
+
+    if (isDirtyRole(roleView)) {
+      const dirty = document.createElement('span');
+      dirty.className = 'role-chip__dirty';
+      dirty.textContent = '未保存';
+      button.appendChild(dirty);
+    }
+
+    fragment.appendChild(button);
+  });
+
+  el.roleList.appendChild(fragment);
+}
+
+function renderPermissionEditor() {
+  const catalog = state.permissions.catalog;
+  const roleView = selectedRole();
+  el.permissionGroups.textContent = '';
+
+  if (!catalog || !roleView) {
+    el.permEmpty.hidden = false;
+    el.permRoleTitle.textContent = '–';
+    el.permRoleHint.textContent = '选择左侧角色查看授权';
+    syncPermControls();
+    return;
+  }
+
+  el.permEmpty.hidden = true;
+  const editable = isEditableRole(roleView);
+  const draft = roleDraft(roleView);
+
+  el.permRoleTitle.textContent = `${roleView.label} · ${roleView.role}`;
+  el.permRoleHint.textContent = editable
+    ? ROLE_NOTES[roleView.role] || '勾选后保存，角色授权会即时写入用户中台。'
+    : ROLE_NOTES.ADMIN;
+  el.permissionGroups.classList.toggle('is-readonly', !editable);
+
+  const groups = new Map();
+  catalog.permissions.forEach((permission) => {
+    const key = permission.module || 'other';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(permission);
+  });
+
+  const fragment = document.createDocumentFragment();
+  groups.forEach((items, module) => {
+    const section = document.createElement('section');
+    section.className = 'perm-group';
+
+    const head = document.createElement('header');
+    head.className = 'perm-group__head';
+    const title = document.createElement('h4');
+    title.textContent = MODULE_LABELS[module] || module;
+    const meta = document.createElement('span');
+    meta.textContent = `${items.filter((item) => draft.has(item.code)).length} / ${items.length}`;
+    head.append(title, meta);
+
+    const list = document.createElement('div');
+    list.className = 'perm-group__list';
+
+    items.forEach((permission) => {
+      const label = document.createElement('label');
+      label.className = 'perm-item';
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = permission.code;
+      input.checked = draft.has(permission.code);
+      input.disabled = !editable || state.permissions.saving;
+      input.addEventListener('change', () => {
+        if (input.checked) draft.add(permission.code);
+        else draft.delete(permission.code);
+        meta.textContent = `${items.filter((item) => draft.has(item.code)).length} / ${items.length}`;
+        setPermStatus('有未保存的改动', 'warn');
+        syncPermControls();
+      });
+
+      const body = document.createElement('span');
+      body.className = 'perm-item__body';
+      const name = document.createElement('span');
+      name.className = 'perm-item__name';
+      name.textContent = permission.name;
+      const code = document.createElement('span');
+      code.className = 'perm-item__code';
+      code.textContent = permission.code;
+      const desc = document.createElement('span');
+      desc.className = 'perm-item__desc';
+      desc.textContent = permission.description || '—';
+      body.append(name, code, desc);
+
+      label.append(input, body);
+      list.appendChild(label);
+    });
+
+    section.append(head, list);
+    fragment.appendChild(section);
+  });
+
+  el.permissionGroups.appendChild(fragment);
+  syncPermControls();
+}
+
+async function loadPermissionCatalog({ silent = false } = {}) {
+  if (state.permissions.loading) return;
+  const seq = ++state.permissions.loadSeq;
+  state.permissions.loading = true;
+  el.permRefreshBtn.disabled = true;
+  if (!silent) setPermStatus('正在读取权限目录…');
+
+  try {
+    const catalog = await http('/api/v1/user/admin/permissions');
+    if (seq !== state.permissions.loadSeq) return;
+
+    const roles = Array.isArray(catalog?.roles) ? catalog.roles : [];
+    const permissions = Array.isArray(catalog?.permissions) ? catalog.permissions : [];
+    state.permissions.catalog = { permissions, roles };
+    state.permissions.loaded = true;
+    state.permissions.drafts = new Map();
+    state.permissions.error = '';
+
+    if (!roles.some((item) => item.role === state.permissions.role)) {
+      state.permissions.role = roles.find((item) => item.role === 'USER')?.role ?? roles[0]?.role;
+    }
+
+    renderPermissionEditor();
+    setPermStatus(`目录已同步 · ${formatClock()}`, 'ok');
+  } catch (error) {
+    if (seq !== state.permissions.loadSeq) return;
+    if (error?.status === 401) return;
+    state.permissions.error = error.message;
+    el.permEmpty.hidden = Boolean(state.permissions.catalog);
+    el.permRoleTitle.textContent = state.permissions.catalog ? el.permRoleTitle.textContent : '–';
+    el.permRoleHint.textContent = state.permissions.catalog
+      ? el.permRoleHint.textContent
+      : '权限目录加载失败';
+    setPermStatus(`读取失败：${error.message}`, 'error');
+    if (!silent) {
+      toast({ title: '权限目录没有加载', detail: error.message, tone: 'error' });
+    }
+  } finally {
+    if (seq === state.permissions.loadSeq) {
+      state.permissions.loading = false;
+      el.permRefreshBtn.disabled = false;
+    }
+  }
+}
+
+function selectRole(role) {
+  if (!findRole(role)) return;
+  state.permissions.role = role;
+  renderPermissionEditor();
+  setPermStatus('', '');
+}
+
+function resetRolePermissions() {
+  const roleView = selectedRole();
+  if (!roleView || !isEditableRole(roleView) || state.permissions.saving) return;
+  state.permissions.drafts.set(roleView.role, new Set(roleView.permissions));
+  renderPermissionEditor();
+  setPermStatus('已撤销本次改动', 'info');
+}
+
+async function saveRolePermissions() {
+  const roleView = selectedRole();
+  if (!roleView || !isEditableRole(roleView) || state.permissions.saving) return;
+  if (!isDirtyRole(roleView)) return;
+
+  const codes = Array.from(roleDraft(roleView)).sort();
+  state.permissions.saving = true;
+  state.permissions.error = '';
+  setPermStatus('正在保存授权…');
+  el.permSaveBtn.disabled = true;
+  el.permResetBtn.disabled = true;
+  renderPermissionEditor();
+
+  try {
+    const saved = await http(
+      `/api/v1/user/admin/roles/${encodeURIComponent(roleView.role)}/permissions`,
+      { method: 'PUT', body: { permissions: codes } },
+    );
+    const permissions = Array.isArray(saved?.permissions) ? saved.permissions : codes;
+    roleView.permissions = permissions;
+    state.permissions.drafts.set(roleView.role, new Set(permissions));
+    state.permissions.saving = false;
+    renderPermissionEditor();
+    setPermStatus(`已保存 · ${formatClock()}`, 'ok');
+    toast({
+      title: `已更新「${roleView.label}」的权限`,
+      detail: '新的授权会在用户下一次身份刷新或登录后生效。',
+      tone: 'success',
+    });
+  } catch (error) {
+    state.permissions.saving = false;
+    if (error?.status === 401) return;
+    const message =
+      error?.code === 'ADMIN_LOCKOUT'
+        ? '管理员角色必须保留「角色权限配置」权限。'
+        : error?.code === 'UNKNOWN_PERMISSION'
+          ? error.message
+          : error.message || '请稍后重试。';
+    setPermStatus(`保存失败：${message}`, 'error');
+    toast({ title: '授权没有保存', detail: message, tone: 'error' });
+    renderPermissionEditor();
+  }
+}
+
 /* ── 自动刷新 / 启动 ── */
 
 function startAutoRefresh() {
   stopAutoRefresh();
   refreshTimer = setInterval(() => {
-    if (!document.hidden && !state.review.open) loadUsers({ silent: true });
+    if (!document.hidden && !state.review.open && state.tab === 'users') {
+      loadUsers({ silent: true });
+    }
   }, REFRESH_MS);
 }
 
@@ -931,6 +1295,7 @@ async function bootstrap() {
     state.user = me;
     el.adminName.textContent = `管理员 · ${me.username}`;
     showConsole();
+    switchTab('users');
     await loadUsers();
     startAutoRefresh();
   } catch (error) {
@@ -955,6 +1320,19 @@ el.filters.addEventListener('click', (event) => {
 });
 el.stats.forEach((node) => {
   node.addEventListener('click', () => selectStatus(node.dataset.status || ''));
+});
+el.consoleTabs.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-tab]');
+  if (button) switchTab(button.dataset.tab);
+});
+el.permRefreshBtn.addEventListener('click', () => loadPermissionCatalog());
+el.roleList.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-role]');
+  if (button) selectRole(button.dataset.role);
+});
+el.permResetBtn.addEventListener('click', resetRolePermissions);
+el.permSaveBtn.addEventListener('click', () => {
+  void saveRolePermissions();
 });
 el.searchInput.addEventListener('input', scheduleSearch);
 el.searchInput.addEventListener('keydown', (event) => {
@@ -1041,7 +1419,7 @@ el.reviewDialog.addEventListener('close', () => {
 el.toastClose.addEventListener('click', hideToast);
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && state.token && !state.review.open) {
+  if (!document.hidden && state.token && !state.review.open && state.tab === 'users') {
     loadUsers({ silent: true });
   }
 });

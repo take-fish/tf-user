@@ -39,10 +39,13 @@ public class AuthController {
         return accounts.login(request);
     }
 
+    /**
+     * 登录态校验与身份快照。网关用它做 token introspection，业务服务也可直接调用。
+     */
     @GetMapping("/me")
     public UserView me(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return auth.requireActiveUser(authorization).toView();
+        return auth.requireIdentity(authorization);
     }
 
     @PostMapping("/logout")
