@@ -38,6 +38,7 @@ FishMatrix（摸鱼矩阵）用户中心服务：账号注册/登录、审批、
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
 | GET | `/api/v1/user/auth/me` | 登录 | 身份快照（id、username、nickname、role、roles、permissions），网关 introspection 也用它 |
+| GET | `/api/v1/user/stats` | 登录 | 用户规模快照 `{active,total}`，首页用启用用户数作为总人数分母 |
 | GET | `/api/v1/user/admin/permissions` | ADMIN | 角色列表 + 全量权限目录 + 各角色已有授权 |
 | PUT | `/api/v1/user/admin/roles/{role}/permissions` | `user.role.manage` | body `{"permissions":["reader.public.upload", ...]}`，整体覆盖 |
 
