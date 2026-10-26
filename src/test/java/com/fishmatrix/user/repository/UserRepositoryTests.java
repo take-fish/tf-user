@@ -1,5 +1,7 @@
 package com.fishmatrix.user.repository;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fishmatrix.user.model.UserAccount;
@@ -27,5 +29,20 @@ class UserRepositoryTests {
         assertTrue(byName.stream().anyMatch(user -> user.id() == id));
         assertTrue(byHash.stream().anyMatch(user -> user.id() == id));
         assertTrue(byPlainId.stream().anyMatch(user -> user.id() == id));
+    }
+
+    @Test
+    void updatesAndClearsAvatar() {
+        LocalDateTime now = LocalDateTime.now();
+        long id = users.insert("avatar_probe", "hash", "avatar_probe", "USER", "ACTIVE", now);
+
+        users.updateAvatar(id, "avatars/" + id + "/probe.png", "image/png", now);
+        UserAccount withAvatar = users.findById(id).orElseThrow();
+        assertTrue(withAvatar.hasAvatar());
+        assertEquals("image/png", withAvatar.avatarContentType());
+        assertTrue(withAvatar.avatarUrl().startsWith("/api/v1/user/avatars/" + id + "?v="));
+
+        users.updateAvatar(id, null, null, now);
+        assertFalse(users.findById(id).orElseThrow().hasAvatar());
     }
 }

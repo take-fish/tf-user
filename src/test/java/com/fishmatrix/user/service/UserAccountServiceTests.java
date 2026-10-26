@@ -194,7 +194,7 @@ class UserAccountServiceTests {
     private static UserAccount account(long id, String username, String hash, String role,
             String status) {
         LocalDateTime now = LocalDateTime.of(2026, 10, 20, 9, 0);
-        return new UserAccount(id, username, hash, username, role, status, now, now,
-                null, null, null);
+        return new UserAccount(id, username, hash, username, null, null, null, role, status, now,
+                now, null, null, null);
     }
 }

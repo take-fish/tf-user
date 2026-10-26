@@ -51,12 +51,19 @@ fm:
   # 用户中台是身份事实来源，不能再经过统一鉴权拦截器调用自己
   auth:
     enabled: false
+  # 头像写入本地命名卷；生产/测试由编排挂载 /app/data/files
+  storage:
+    enabled: ${FM_STORAGE_ENABLED:true}
+    base-dir: ${FM_STORAGE_BASE_DIR:./data/files}
+    max-file-bytes: ${FM_STORAGE_MAX_BYTES:8388608}
   common:
     error:
       service-unavailable-code: USER_UNAVAILABLE
       service-unavailable-message: 用户服务暂不可用
   user:
     session-ttl-hours: ${USER_SESSION_TTL_HOURS:168}
+    avatar:
+      max-bytes: ${USER_AVATAR_MAX_BYTES:2097152}
     admin:
       username: ${USER_ADMIN_USERNAME:admin}
       password: ${USER_ADMIN_PASSWORD:}
