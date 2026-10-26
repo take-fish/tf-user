@@ -20,7 +20,8 @@ import org.springframework.stereotype.Repository;
 public class UserRepository {
 
     private static final String COLUMNS =
-            "id, username, password_hash, nickname, role, status, created_at, updated_at, "
+            "id, username, password_hash, nickname, avatar_key, avatar_content_type, "
+                    + "avatar_updated_at, role, status, created_at, updated_at, "
                     + "approved_at, approved_by, last_login_at";
 
     private static final RowMapper<UserAccount> ROW_MAPPER = (rs, rowNum) -> new UserAccount(
@@ -28,6 +29,9 @@ public class UserRepository {
             rs.getString("username"),
             rs.getString("password_hash"),
             rs.getString("nickname"),
+            rs.getString("avatar_key"),
+            rs.getString("avatar_content_type"),
+            localDateTime(rs, "avatar_updated_at"),
             rs.getString("role"),
             rs.getString("status"),
             localDateTime(rs, "created_at"),
@@ -99,6 +103,13 @@ public class UserRepository {
                 "UPDATE user_account SET status = ?, approved_at = ?, approved_by = ?, updated_at = ? "
                         + "WHERE id = ?",
                 status, now, approvedBy, now, id);
+    }
+
+    public void updateAvatar(long id, String storageKey, String contentType, LocalDateTime now) {
+        jdbc.update(
+                "UPDATE user_account SET avatar_key = ?, avatar_content_type = ?, "
+                        + "avatar_updated_at = ?, updated_at = ? WHERE id = ?",
+                storageKey, contentType, now, now, id);
     }
 
     public void touchLastLogin(long id, LocalDateTime now) {

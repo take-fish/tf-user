@@ -10,6 +10,8 @@ public record UserView(
         long id,
         String username,
         String nickname,
+        /** 头像地址；未设置时为 null，调用方回退首字母占位。 */
+        String avatarUrl,
         String role,
         String status,
         LocalDateTime createdAt,

@@ -29,6 +29,9 @@ app:
 fm:
   auth:
     enabled: false
+  storage:
+    enabled: true
+    base-dir: target/test-files
   user:
     session-ttl-hours: 168
     admin:
