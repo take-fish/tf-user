@@ -160,7 +160,7 @@ class PermissionServiceTests {
 
     private static UserAccount account(String role) {
         LocalDateTime now = LocalDateTime.of(2026, 10, 23, 9, 0);
-        return new UserAccount(1, "tester", "hash", "tester", role, "ACTIVE", now, now,
-                now, "admin", now);
+        return new UserAccount(1, "tester", "hash", "tester", null, null, null, role, "ACTIVE",
+                now, now, now, "admin", now);
     }
 }
