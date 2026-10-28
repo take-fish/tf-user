@@ -4,11 +4,13 @@ import com.fishmatrix.user.model.PermissionView;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class PermissionRepository {
 
     private static final RowMapper<PermissionView> PERMISSION_MAPPER = (rs, rowNum) ->
@@ -19,10 +21,6 @@ public class PermissionRepository {
                     rs.getString("description"));
 
     private final JdbcTemplate jdbc;
-
-    public PermissionRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
 
     public List<PermissionView> findAll() {
         return jdbc.query(

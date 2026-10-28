@@ -9,8 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -22,9 +21,8 @@ import org.springframework.web.multipart.MultipartFile;
  * 读取接口不校验登录态；写入只允许本人操作。
  */
 @Service
+@Slf4j
 public class UserAvatarService {
-
-    private static final Logger log = LoggerFactory.getLogger(UserAvatarService.class);
 
     private final FileStorage storage;
     private final UserRepository users;

@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,9 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class UserAccountService {
-
-    private static final Logger log = LoggerFactory.getLogger(UserAccountService.class);
 
     private static final Set<String> STATUSES = Set.of(
             UserAccount.STATUS_PENDING,
@@ -37,14 +37,6 @@ public class UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessions;
     private final PermissionService permissions;
-
-    public UserAccountService(UserRepository users, PasswordEncoder passwordEncoder,
-            SessionService sessions, PermissionService permissions) {
-        this.users = users;
-        this.passwordEncoder = passwordEncoder;
-        this.sessions = sessions;
-        this.permissions = permissions;
-    }
 
     @Transactional
     public RegisterResult register(RegisterRequest request) {

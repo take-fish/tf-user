@@ -4,22 +4,17 @@ import com.fishmatrix.common.error.ApiException;
 import com.fishmatrix.user.model.UserAccount;
 import com.fishmatrix.user.model.UserView;
 import com.fishmatrix.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class AuthService {
 
     private final SessionService sessions;
     private final UserRepository users;
     private final PermissionService permissions;
-
-    public AuthService(SessionService sessions, UserRepository users,
-            PermissionService permissions) {
-        this.sessions = sessions;
-        this.users = users;
-        this.permissions = permissions;
-    }
 
     /**
      * 登录态的唯一可信来源。网关和各业务服务通过 {@code /auth/me} 拿到这份快照，
