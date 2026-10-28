@@ -1,6 +1,12 @@
 package com.fishmatrix.user.service;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fishmatrix.common.error.ApiException;
+import com.fishmatrix.user.converter.UserConverters;
+import com.fishmatrix.user.domain.UserRole;
+import com.fishmatrix.user.domain.UserStatus;
+import com.fishmatrix.user.entity.UserAccountEntity;
+import com.fishmatrix.user.mapper.UserAccountMapper;
 import com.fishmatrix.user.model.LoginRequest;
 import com.fishmatrix.user.model.LoginResult;
 import com.fishmatrix.user.model.RegisterRequest;
@@ -9,8 +15,8 @@ import com.fishmatrix.user.model.UserAccount;
 import com.fishmatrix.user.model.UserPage;
 import com.fishmatrix.user.model.UserStats;
 import com.fishmatrix.user.model.UserView;
-import com.fishmatrix.user.repository.UserRepository;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +39,7 @@ public class UserAccountService {
             UserAccount.STATUS_REJECTED,
             UserAccount.STATUS_DISABLED);
 
-    private final UserRepository users;
+    private final UserAccountMapper users;
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessions;
     private final PermissionService permissions;
@@ -45,18 +51,27 @@ public class UserAccountService {
         UserValidation.requireUsername(username);
         UserValidation.requirePassword(password);
 
-        if (users.existsByUsername(username)) {
-            throw new ApiException(HttpStatus.CONFLICT, "USERNAME_TAKEN", "这个名号已经有人用了");
+        if (countByUsername(username) > 0) {
+            throw usernameTaken();
         }
 
-        long id;
+        LocalDateTime now = LocalDateTime.now();
+        UserAccountEntity entity = new UserAccountEntity();
+        entity.setUsername(username);
+        entity.setPasswordHash(passwordEncoder.encode(password));
+        entity.setNickname(username);
+        entity.setRole(UserRole.USER);
+        entity.setStatus(UserStatus.PENDING);
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
         try {
-            id = users.insert(username, passwordEncoder.encode(password), username,
-                    UserAccount.ROLE_USER, UserAccount.STATUS_PENDING, LocalDateTime.now());
+            users.insert(entity);
         } catch (DuplicateKeyException exception) {
-            throw new ApiException(HttpStatus.CONFLICT, "USERNAME_TAKEN", "这个名号已经有人用了");
+            // 并发注册撞唯一索引时，仍然返回同一个“名号已被占用”的语义
+            throw usernameTaken();
         }
 
+        long id = entity.getId() == null ? 0L : entity.getId();
         log.info("user registration queued id={} username={} status={}",
                 id, username, UserAccount.STATUS_PENDING);
         return new RegisterResult(id, UserAccount.STATUS_PENDING, "等待通过中");
@@ -67,8 +82,10 @@ public class UserAccountService {
         String username = UserValidation.normalizeUsername(request.username());
         String password = request.password() == null ? "" : request.password();
 
-        UserAccount account = users.findByUsername(username)
-                .orElseThrow(UserAccountService::invalidCredentials);
+        UserAccount account = findByUsername(username);
+        if (account == null) {
+            throw invalidCredentials();
+        }
 
         if (!passwordEncoder.matches(password, account.passwordHash())) {
             throw invalidCredentials();
@@ -102,19 +119,23 @@ public class UserAccountService {
         int safeSize = Math.min(100, Math.max(1, size));
         int offset = (safePage - 1) * safeSize;
 
-        List<UserView> items = users.search(normalizedStatus, query, safeSize, offset)
+        Keyword keyword = Keyword.of(query);
+        List<UserView> items = users.search(
+                        normalizedStatus, keyword.text(), keyword.id(), safeSize, offset)
                 .stream()
+                .map(UserConverters::toModel)
                 .map(permissions::view)
                 .toList();
-        long total = users.count(normalizedStatus, query);
+        long total = users.countUsers(normalizedStatus, keyword.text(), keyword.id());
         return new UserPage(items, safePage, safeSize, total, stats());
     }
 
     @Transactional
     public UserView changeStatus(long targetId, String action, UserAccount admin) {
-        UserAccount target = users.findById(targetId)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "没有找到这个用户"));
+        UserAccount target = findById(targetId);
+        if (target == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "没有找到这个用户");
+        }
 
         if (target.id() == admin.id() && ("reject".equals(action) || "disable".equals(action))) {
             throw new ApiException(HttpStatus.CONFLICT, "SELF_ACTION", "不能对自己执行这个操作");
@@ -142,17 +163,34 @@ public class UserAccountService {
                     HttpStatus.BAD_REQUEST, "BAD_ACTION", "不支持的操作：" + action);
         }
 
-        return users.findById(target.id()).map(permissions::view).orElseThrow();
+        return permissions.view(findById(target.id()));
     }
 
     public UserStats stats() {
-        Map<String, Long> counts = users.statusCounts();
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (UserAccountMapper.StatusCount row : users.selectStatusCounts()) {
+            counts.put(row.status(), row.total());
+        }
         long total = counts.values().stream().mapToLong(Long::longValue).sum();
         long pending = counts.getOrDefault(UserAccount.STATUS_PENDING, 0L);
         long active = counts.getOrDefault(UserAccount.STATUS_ACTIVE, 0L);
         long rejected = counts.getOrDefault(UserAccount.STATUS_REJECTED, 0L);
         long disabled = counts.getOrDefault(UserAccount.STATUS_DISABLED, 0L);
         return new UserStats(total, pending, active, rejected, disabled);
+    }
+
+    private UserAccount findByUsername(String username) {
+        return UserConverters.toModel(users.selectOne(Wrappers.<UserAccountEntity>lambdaQuery()
+                .eq(UserAccountEntity::getUsername, username)));
+    }
+
+    private UserAccount findById(long id) {
+        return UserConverters.toModel(users.selectById(id));
+    }
+
+    private long countByUsername(String username) {
+        return users.selectCount(Wrappers.<UserAccountEntity>lambdaQuery()
+                .eq(UserAccountEntity::getUsername, username));
     }
 
     private static void requireStatus(UserAccount target, Set<String> allowed) {
@@ -164,5 +202,32 @@ public class UserAccountService {
 
     private static ApiException invalidCredentials() {
         return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "名号或口号不对");
+    }
+
+    private static ApiException usernameTaken() {
+        return new ApiException(HttpStatus.CONFLICT, "USERNAME_TAKEN", "这个名号已经有人用了");
+    }
+
+    /**
+     * 管理台搜索框：支持按名号模糊匹配，也支持 {@code #123} / {@code 123} 按 ID 精确匹配。
+     */
+    record Keyword(String text, Long id) {
+
+        static Keyword of(String query) {
+            if (query == null || query.isBlank()) {
+                return new Keyword(null, null);
+            }
+            String text = query.trim();
+            if (text.startsWith("#")) {
+                text = text.substring(1);
+            }
+            Long id = null;
+            try {
+                id = Long.parseLong(text);
+            } catch (NumberFormatException ignored) {
+                // 非数字关键字只按名号搜索
+            }
+            return new Keyword(text, id);
+        }
     }
 }

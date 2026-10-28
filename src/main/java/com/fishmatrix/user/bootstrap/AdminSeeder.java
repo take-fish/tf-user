@@ -1,10 +1,14 @@
 package com.fishmatrix.user.bootstrap;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.fishmatrix.user.converter.UserConverters;
+import com.fishmatrix.user.domain.UserRole;
+import com.fishmatrix.user.domain.UserStatus;
+import com.fishmatrix.user.entity.UserAccountEntity;
+import com.fishmatrix.user.mapper.UserAccountMapper;
 import com.fishmatrix.user.model.UserAccount;
-import com.fishmatrix.user.repository.UserRepository;
 import com.fishmatrix.user.service.UserValidation;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
@@ -16,13 +20,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class AdminSeeder implements ApplicationRunner {
 
-    private final UserRepository users;
+    private final UserAccountMapper users;
     private final PasswordEncoder passwordEncoder;
     private final String username;
     private final String password;
     private final boolean seedEnabled;
 
-    public AdminSeeder(UserRepository users, PasswordEncoder passwordEncoder,
+    public AdminSeeder(UserAccountMapper users, PasswordEncoder passwordEncoder,
             @Value("${fm.user.admin.username:admin}") String username,
             @Value("${fm.user.admin.password:}") String password,
             @Value("${fm.user.admin.seed-enabled:false}") boolean seedEnabled) {
@@ -52,22 +56,30 @@ public class AdminSeeder implements ApplicationRunner {
             return;
         }
 
-        Optional<UserAccount> existing = users.findByUsername(username);
+        UserAccount existing = UserConverters.toModel(
+                users.selectOne(Wrappers.<UserAccountEntity>lambdaQuery()
+                        .eq(UserAccountEntity::getUsername, username)));
         LocalDateTime now = LocalDateTime.now();
 
-        if (existing.isEmpty()) {
-            users.insert(username, passwordEncoder.encode(password), username,
-                    UserAccount.ROLE_ADMIN, UserAccount.STATUS_ACTIVE, now);
+        if (existing == null) {
+            UserAccountEntity entity = new UserAccountEntity();
+            entity.setUsername(username);
+            entity.setPasswordHash(passwordEncoder.encode(password));
+            entity.setNickname(username);
+            entity.setRole(UserRole.ADMIN);
+            entity.setStatus(UserStatus.ACTIVE);
+            entity.setCreatedAt(now);
+            entity.setUpdatedAt(now);
+            users.insert(entity);
             log.info("已创建管理员账号：{}", username);
             return;
         }
 
-        UserAccount account = existing.get();
-        boolean upToDate = account.isAdmin()
-                && account.isActive()
-                && passwordEncoder.matches(password, account.passwordHash());
+        boolean upToDate = existing.isAdmin()
+                && existing.isActive()
+                && passwordEncoder.matches(password, existing.passwordHash());
         if (!upToDate) {
-            users.updatePasswordAndActivateAdmin(account.id(), passwordEncoder.encode(password), now);
+            users.activateAdmin(existing.id(), passwordEncoder.encode(password), now);
             log.info("已同步管理员账号：{}", username);
         }
     }

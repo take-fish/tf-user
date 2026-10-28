@@ -38,6 +38,16 @@ spring:
       mode: ${SQL_INIT_MODE:never}
       encoding: UTF-8
 
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
 server:
   port: 8101
   shutdown: graceful
