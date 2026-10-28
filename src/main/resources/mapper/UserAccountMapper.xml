@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishmatrix.user.mapper.UserAccountMapper">
+
+  <sql id="USER_COLUMNS">
+    id, username, password_hash, nickname, avatar_key, avatar_content_type,
+    avatar_updated_at, role, status, created_at, updated_at,
+    approved_at, approved_by, last_login_at
+  </sql>
+
+  <update id="activateAdmin">
+    UPDATE user_account
+    SET password_hash = #{passwordHash},
+        nickname = username,
+        role = 'ADMIN',
+        status = 'ACTIVE',
+        approved_at = COALESCE(approved_at, #{now}),
+        approved_by = COALESCE(approved_by, 'system'),
+        updated_at = #{now}
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateStatus">
+    UPDATE user_account
+    SET status = #{status},
+        approved_at = #{now},
+        approved_by = #{approvedBy},
+        updated_at = #{now}
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateAvatar">
+    UPDATE user_account
+    SET avatar_key = #{storageKey},
+        avatar_content_type = #{contentType},
+        avatar_updated_at = #{now},
+        updated_at = #{now}
+    WHERE id = #{id}
+  </update>
+
+  <update id="touchLastLogin">
+    UPDATE user_account
+    SET last_login_at = #{now},
+        updated_at = #{now}
+    WHERE id = #{id}
+  </update>
+
+  <sql id="SEARCH_FILTER">
+    <where>
+      <if test="status != null">
+        AND status = #{status}
+      </if>
+      <if test="keyword != null">
+        AND (username LIKE CONCAT('%', #{keyword}, '%')
+        <if test="id != null">
+          OR id = #{id}
+        </if>
+        )
+      </if>
+    </where>
+  </sql>
+
+  <select id="search" resultType="com.fishmatrix.user.entity.UserAccountEntity">
+    SELECT <include refid="USER_COLUMNS"/>
+    FROM user_account
+    <include refid="SEARCH_FILTER"/>
+    ORDER BY CASE WHEN status = 'PENDING' THEN 0 ELSE 1 END, id DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countUsers" resultType="long">
+    SELECT COUNT(*)
+    FROM user_account
+    <include refid="SEARCH_FILTER"/>
+  </select>
+
+  <select id="selectStatusCounts"
+          resultType="com.fishmatrix.user.mapper.UserAccountMapper$StatusCount">
+    SELECT status, COUNT(*) AS total
+    FROM user_account
+    GROUP BY status
+  </select>
+
+</mapper>

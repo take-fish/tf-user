@@ -14,13 +14,13 @@ import static org.mockito.Mockito.when;
 
 import com.fishmatrix.common.error.ApiException;
 import com.fishmatrix.common.storage.LocalFileStorage;
+import com.fishmatrix.user.mapper.UserAccountMapper;
 import com.fishmatrix.user.model.UserAccount;
-import com.fishmatrix.user.repository.UserRepository;
+import com.fishmatrix.user.testsupport.UserFixtures;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,7 +41,7 @@ class UserAvatarServiceTests {
     Path tempDir;
 
     @Mock
-    private UserRepository users;
+    private UserAccountMapper users;
 
     private LocalFileStorage storage;
     private UserAvatarService service;
@@ -57,8 +57,7 @@ class UserAvatarServiceTests {
         UserAccount account = account(null);
         byte[] png = with(0x42);
         MultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", png);
-        UserAccount updated = account("avatars/1/avatar.png");
-        when(users.findById(1L)).thenReturn(Optional.of(updated));
+        when(users.selectById(1L)).thenReturn(entity("avatars/1/avatar.png"));
 
         UserAccount result = service.upload(account, file);
 
@@ -74,7 +73,7 @@ class UserAvatarServiceTests {
         Files.write(oldFile, PNG);
         UserAccount account = account("avatars/1/old.png");
         MultipartFile file = new MockMultipartFile("file", "new.png", "image/png", with(0x42));
-        when(users.findById(1L)).thenReturn(Optional.of(account("avatars/1/new.png")));
+        when(users.selectById(1L)).thenReturn(entity("avatars/1/new.png"));
 
         service.upload(account, file);
 
@@ -104,7 +103,8 @@ class UserAvatarServiceTests {
 
     @Test
     void loadMissingAvatarIsNotFound() {
-        when(users.findById(9L)).thenReturn(Optional.of(account(9L, null)));
+        when(users.selectById(9L)).thenReturn(
+                UserFixtures.account(9, "u9", "USER", "ACTIVE"));
 
         ApiException error = assertThrows(ApiException.class, () -> service.load(9L));
 
@@ -117,7 +117,7 @@ class UserAvatarServiceTests {
         Files.createDirectories(oldFile.getParent());
         Files.write(oldFile, PNG);
         UserAccount account = account("avatars/1/old.png");
-        when(users.findById(1L)).thenReturn(Optional.of(account(1L, null)));
+        when(users.selectById(1L)).thenReturn(UserFixtures.account(1, "u1", "USER", "ACTIVE"));
 
         UserAccount result = service.clear(account);
 
@@ -135,6 +135,10 @@ class UserAvatarServiceTests {
         return new UserAccount(id, "u" + id, "hash", "良一情", avatarKey,
                 avatarKey == null ? null : "image/png", avatarKey == null ? null : now,
                 "USER", "ACTIVE", now, now, null, null, null);
+    }
+
+    private static com.fishmatrix.user.entity.UserAccountEntity entity(String avatarKey) {
+        return UserFixtures.account(1, "u1", "hash", "USER", "ACTIVE", avatarKey);
     }
 
     private static byte[] with(int marker) {

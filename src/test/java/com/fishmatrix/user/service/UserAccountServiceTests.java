@@ -13,6 +13,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fishmatrix.common.error.ApiException;
+import com.fishmatrix.user.entity.UserAccountEntity;
+import com.fishmatrix.user.mapper.UserAccountMapper;
 import com.fishmatrix.user.model.LoginRequest;
 import com.fishmatrix.user.model.LoginResult;
 import com.fishmatrix.user.model.RegisterRequest;
@@ -20,13 +22,13 @@ import com.fishmatrix.user.model.RegisterResult;
 import com.fishmatrix.user.model.UserAccount;
 import com.fishmatrix.user.model.UserStats;
 import com.fishmatrix.user.model.UserView;
-import com.fishmatrix.user.repository.UserRepository;
+import com.fishmatrix.user.testsupport.UserFixtures;
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -36,7 +38,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class UserAccountServiceTests {
 
     @Mock
-    private UserRepository users;
+    private UserAccountMapper users;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -54,45 +56,53 @@ class UserAccountServiceTests {
         lenient().when(permissions.view(any()))
                 .thenAnswer(invocation -> {
                     UserAccount account = invocation.getArgument(0);
-                    return account.toView(java.util.List.of(account.role()),
-                            java.util.List.of());
+                    return account.toView(List.of(account.role()), List.of());
                 });
         service = new UserAccountService(users, passwordEncoder, sessions, permissions);
     }
 
     @Test
     void registersPendingUser() {
-        when(users.existsByUsername("小明")).thenReturn(false);
+        when(users.selectCount(any())).thenReturn(0L);
         when(passwordEncoder.encode("secret12")).thenReturn("hash");
-        when(users.insert(eq("小明"), eq("hash"), eq("小明"), eq("USER"), eq("PENDING"),
-                any(LocalDateTime.class))).thenReturn(7L);
+        when(users.insert(any(UserAccountEntity.class))).thenAnswer(invocation -> {
+            UserAccountEntity entity = invocation.getArgument(0);
+            entity.setId(7L);
+            return 1;
+        });
 
         RegisterResult result = service.register(new RegisterRequest(" 小明 ", "secret12"));
 
         assertEquals(7L, result.id());
         assertEquals("PENDING", result.status());
         assertEquals("等待通过中", result.message());
-        verify(users).insert(eq("小明"), eq("hash"), eq("小明"), eq("USER"), eq("PENDING"),
-                any(LocalDateTime.class));
+
+        ArgumentCaptor<UserAccountEntity> captor = ArgumentCaptor.forClass(UserAccountEntity.class);
+        verify(users).insert(captor.capture());
+        UserAccountEntity saved = captor.getValue();
+        assertEquals("小明", saved.getUsername());
+        assertEquals("hash", saved.getPasswordHash());
+        assertEquals("小明", saved.getNickname());
+        assertEquals("USER", saved.getRole().name());
+        assertEquals("PENDING", saved.getStatus().name());
     }
 
     @Test
     void rejectsDuplicateUsername() {
-        when(users.existsByUsername("小明")).thenReturn(true);
+        when(users.selectCount(any())).thenReturn(1L);
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> service.register(new RegisterRequest("小明", "secret12")));
 
         assertEquals(HttpStatus.CONFLICT, exception.status());
         assertEquals("USERNAME_TAKEN", exception.code());
-        verify(users, never()).insert(anyString(), anyString(), anyString(), anyString(),
-                anyString(), any());
+        verify(users, never()).insert(any(UserAccountEntity.class));
     }
 
     @Test
     void blocksPendingUserAfterCorrectPassword() {
-        UserAccount pending = account(5, "小明", "hash", "USER", "PENDING");
-        when(users.findByUsername("小明")).thenReturn(Optional.of(pending));
+        when(users.selectOne(any()))
+                .thenReturn(UserFixtures.account(5, "小明", "USER", "PENDING"));
         when(passwordEncoder.matches("secret12", "hash")).thenReturn(true);
 
         ApiException exception = assertThrows(ApiException.class,
@@ -105,8 +115,8 @@ class UserAccountServiceTests {
 
     @Test
     void rejectsWrongPasswordWithGenericMessage() {
-        UserAccount active = account(5, "小明", "hash", "USER", "ACTIVE");
-        when(users.findByUsername("小明")).thenReturn(Optional.of(active));
+        when(users.selectOne(any()))
+                .thenReturn(UserFixtures.account(5, "小明", "USER", "ACTIVE"));
         when(passwordEncoder.matches("wrong12", "hash")).thenReturn(false);
 
         ApiException exception = assertThrows(ApiException.class,
@@ -119,8 +129,8 @@ class UserAccountServiceTests {
 
     @Test
     void logsInActiveUserAndIssuesSession() {
-        UserAccount active = account(5, "小明", "hash", "USER", "ACTIVE");
-        when(users.findByUsername("小明")).thenReturn(Optional.of(active));
+        when(users.selectOne(any()))
+                .thenReturn(UserFixtures.account(5, "小明", "USER", "ACTIVE"));
         when(passwordEncoder.matches("secret12", "hash")).thenReturn(true);
         when(sessions.create(5, "USER")).thenReturn("token-abc");
 
@@ -133,10 +143,10 @@ class UserAccountServiceTests {
 
     @Test
     void approvesPendingUser() {
-        UserAccount admin = account(1, "admin", "hash", "ADMIN", "ACTIVE");
-        UserAccount pending = account(5, "小明", "hash", "USER", "PENDING");
-        UserAccount approved = account(5, "小明", "hash", "USER", "ACTIVE");
-        when(users.findById(5)).thenReturn(Optional.of(pending), Optional.of(approved));
+        UserAccount admin = account(1, "admin", "ADMIN", "ACTIVE");
+        when(users.selectById(5L)).thenReturn(
+                UserFixtures.account(5, "小明", "USER", "PENDING"),
+                UserFixtures.account(5, "小明", "USER", "ACTIVE"));
 
         UserView result = service.changeStatus(5, "approve", admin);
 
@@ -146,8 +156,8 @@ class UserAccountServiceTests {
 
     @Test
     void refusesSelfReject() {
-        UserAccount admin = account(1, "admin", "hash", "ADMIN", "ACTIVE");
-        when(users.findById(1)).thenReturn(Optional.of(admin));
+        UserAccount admin = account(1, "admin", "ADMIN", "ACTIVE");
+        when(users.selectById(1L)).thenReturn(UserFixtures.account(1, "admin", "ADMIN", "ACTIVE"));
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> service.changeStatus(1, "reject", admin));
@@ -159,9 +169,9 @@ class UserAccountServiceTests {
 
     @Test
     void refusesInvalidTransition() {
-        UserAccount admin = account(1, "admin", "hash", "ADMIN", "ACTIVE");
-        UserAccount disabled = account(5, "小明", "hash", "USER", "DISABLED");
-        when(users.findById(5)).thenReturn(Optional.of(disabled));
+        UserAccount admin = account(1, "admin", "ADMIN", "ACTIVE");
+        when(users.selectById(5L)).thenReturn(
+                UserFixtures.account(5, "小明", "USER", "DISABLED"));
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> service.changeStatus(5, "disable", admin));
@@ -172,8 +182,10 @@ class UserAccountServiceTests {
 
     @Test
     void aggregatesStats() {
-        when(users.statusCounts()).thenReturn(Map.of(
-                "PENDING", 2L, "ACTIVE", 3L, "DISABLED", 1L));
+        when(users.selectStatusCounts()).thenReturn(List.of(
+                new UserAccountMapper.StatusCount("PENDING", 2),
+                new UserAccountMapper.StatusCount("ACTIVE", 3),
+                new UserAccountMapper.StatusCount("DISABLED", 1)));
 
         UserStats stats = service.stats();
 
@@ -191,10 +203,9 @@ class UserAccountServiceTests {
                 .getMessage().contains("名号"));
     }
 
-    private static UserAccount account(long id, String username, String hash, String role,
-            String status) {
-        LocalDateTime now = LocalDateTime.of(2026, 10, 20, 9, 0);
-        return new UserAccount(id, username, hash, username, null, null, null, role, status, now,
+    private static UserAccount account(long id, String username, String role, String status) {
+        LocalDateTime now = UserFixtures.NOW;
+        return new UserAccount(id, username, "hash", username, null, null, null, role, status, now,
                 now, null, null, null);
     }
 }
