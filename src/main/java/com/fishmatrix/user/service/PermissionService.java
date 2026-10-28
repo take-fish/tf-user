@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,16 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
  * 权限只由用户中台维护：角色到权限码的映射存数据库，其他服务只消费身份头中的权限快照。
  */
 @Service
+@RequiredArgsConstructor
 public class PermissionService {
 
     private static final List<String> ROLES = List.of(
             UserAccount.ROLE_USER, UserAccount.ROLE_ADMIN);
 
     private final PermissionRepository permissions;
-
-    public PermissionService(PermissionRepository permissions) {
-        this.permissions = permissions;
-    }
 
     public List<String> permissionsFor(UserAccount account) {
         if (account == null) return List.of();

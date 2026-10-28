@@ -8,6 +8,7 @@ import com.fishmatrix.user.service.PermissionService;
 import com.fishmatrix.user.service.UserAvatarService;
 import java.time.Duration;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 @RequestMapping("/api/v1/user")
+@RequiredArgsConstructor
 public class UserAvatarController {
 
     private static final Pattern USER_ID = Pattern.compile("[uU]?\\d{1,18}");
@@ -35,13 +37,6 @@ public class UserAvatarController {
     private final AuthService auth;
     private final PermissionService permissions;
     private final UserAvatarService avatars;
-
-    public UserAvatarController(AuthService auth, PermissionService permissions,
-            UserAvatarService avatars) {
-        this.auth = auth;
-        this.permissions = permissions;
-        this.avatars = avatars;
-    }
 
     @PostMapping(value = "/auth/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserView upload(

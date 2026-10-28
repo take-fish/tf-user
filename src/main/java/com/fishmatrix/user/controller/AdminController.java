@@ -10,6 +10,7 @@ import com.fishmatrix.user.model.UserView;
 import com.fishmatrix.user.service.AuthService;
 import com.fishmatrix.user.service.PermissionService;
 import com.fishmatrix.user.service.UserAccountService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,18 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/user/admin")
+@RequiredArgsConstructor
 public class AdminController {
 
     private final UserAccountService accounts;
     private final PermissionService permissions;
     private final AuthService auth;
-
-    public AdminController(UserAccountService accounts, PermissionService permissions,
-            AuthService auth) {
-        this.accounts = accounts;
-        this.permissions = permissions;
-        this.auth = auth;
-    }
 
     @GetMapping("/users")
     public UserPage users(
