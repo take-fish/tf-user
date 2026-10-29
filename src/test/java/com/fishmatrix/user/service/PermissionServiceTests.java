@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -12,17 +13,21 @@ import static org.mockito.Mockito.when;
 
 import com.fishmatrix.common.error.ApiException;
 import com.fishmatrix.user.auth.PermissionCodes;
+import com.fishmatrix.user.entity.AuthPermissionEntity;
+import com.fishmatrix.user.entity.AuthRolePermissionEntity;
+import com.fishmatrix.user.mapper.AuthPermissionMapper;
+import com.fishmatrix.user.mapper.AuthRolePermissionMapper;
 import com.fishmatrix.user.model.PermissionCatalogView;
 import com.fishmatrix.user.model.PermissionView;
 import com.fishmatrix.user.model.RolePermissionsView;
 import com.fishmatrix.user.model.UserAccount;
-import com.fishmatrix.user.repository.PermissionRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -31,23 +36,27 @@ import org.springframework.http.HttpStatus;
 class PermissionServiceTests {
 
     @Mock
-    private PermissionRepository permissions;
+    private AuthPermissionMapper permissionMapper;
+
+    @Mock
+    private AuthRolePermissionMapper rolePermissionMapper;
 
     private PermissionService service;
 
-    private final List<PermissionView> catalog = PermissionCodes.ALL.stream()
-            .map(code -> new PermissionView(code, code, moduleOf(code), code))
+    private final List<AuthPermissionEntity> catalog = PermissionCodes.ALL.stream()
+            .map(PermissionServiceTests::permission)
             .toList();
 
     @BeforeEach
     void setUp() {
-        service = new PermissionService(permissions);
+        service = new PermissionService(permissionMapper, rolePermissionMapper);
     }
 
     @Test
     void adminAlwaysReceivesFullCatalog() {
-        when(permissions.findAll()).thenReturn(catalog);
-        when(permissions.findCodesByRole("USER")).thenReturn(PermissionCodes.DEFAULT_USER);
+        when(permissionMapper.selectList(any())).thenReturn(catalog);
+        when(rolePermissionMapper.selectList(any())).thenReturn(rolePermissions(
+                PermissionCodes.DEFAULT_USER));
 
         PermissionCatalogView view = service.catalog();
 
@@ -61,7 +70,7 @@ class PermissionServiceTests {
 
     @Test
     void adminPermissionsIgnoreStoredRows() {
-        when(permissions.findAll()).thenReturn(catalog);
+        when(permissionMapper.selectList(any())).thenReturn(catalog);
 
         assertEquals(PermissionCodes.ALL,
                 service.permissionsFor(account("ADMIN")));
@@ -69,7 +78,7 @@ class PermissionServiceTests {
 
     @Test
     void normalizesAndSavesRolePermissions() {
-        when(permissions.countCodes(any())).thenReturn(2L);
+        when(permissionMapper.selectCount(any())).thenReturn(2L);
 
         RolePermissionsView saved = service.updateRole(" user ", List.of(
                 " " + PermissionCodes.READER_CATEGORY_MANAGE + " ",
@@ -81,9 +90,16 @@ class PermissionServiceTests {
         assertEquals("普通用户", saved.label());
         assertEquals(List.of(PermissionCodes.READER_CATEGORY_MANAGE,
                 PermissionCodes.MUSIC_CATEGORY_MANAGE), saved.permissions());
-        verify(permissions).replaceRolePermissions(eq("USER"), eq(Set.of(
-                PermissionCodes.READER_CATEGORY_MANAGE,
-                PermissionCodes.MUSIC_CATEGORY_MANAGE)), any(LocalDateTime.class));
+
+        verify(rolePermissionMapper).delete(any());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<AuthRolePermissionEntity>> captor =
+                ArgumentCaptor.forClass(List.class);
+        verify(rolePermissionMapper).insert(captor.capture());
+        assertEquals(Set.of(PermissionCodes.READER_CATEGORY_MANAGE,
+                        PermissionCodes.MUSIC_CATEGORY_MANAGE),
+                Set.copyOf(captor.getValue().stream()
+                        .map(AuthRolePermissionEntity::getPermissionCode).toList()));
     }
 
     @Test
@@ -93,13 +109,13 @@ class PermissionServiceTests {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.status());
         assertEquals("UNKNOWN_ROLE", exception.code());
-        verify(permissions, never()).replaceRolePermissions(anyString(), any(), any());
+        verify(rolePermissionMapper, never()).delete(any());
     }
 
     @Test
     void rejectsUnknownPermissionCode() {
-        when(permissions.countCodes(any())).thenReturn(1L);
-        when(permissions.findAll()).thenReturn(catalog);
+        when(permissionMapper.selectCount(any())).thenReturn(1L);
+        when(permissionMapper.selectList(any())).thenReturn(catalog);
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> service.updateRole("USER", List.of(
@@ -108,12 +124,12 @@ class PermissionServiceTests {
         assertEquals(HttpStatus.BAD_REQUEST, exception.status());
         assertEquals("UNKNOWN_PERMISSION", exception.code());
         assertTrue(exception.getMessage().contains("reader.nope"));
-        verify(permissions, never()).replaceRolePermissions(anyString(), any(), any());
+        verify(rolePermissionMapper, never()).delete(any());
     }
 
     @Test
     void keepsRoleManagementPermissionOnAdmin() {
-        when(permissions.countCodes(any())).thenReturn(1L);
+        when(permissionMapper.selectCount(any())).thenReturn(1L);
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> service.updateRole("ADMIN",
@@ -121,7 +137,7 @@ class PermissionServiceTests {
 
         assertEquals(HttpStatus.CONFLICT, exception.status());
         assertEquals("ADMIN_LOCKOUT", exception.code());
-        verify(permissions, never()).replaceRolePermissions(anyString(), any(), any());
+        verify(rolePermissionMapper, never()).delete(any());
     }
 
     @Test
@@ -132,18 +148,36 @@ class PermissionServiceTests {
 
         assertEquals(HttpStatus.FORBIDDEN, exception.status());
         assertEquals("FORBIDDEN", exception.code());
-        verify(permissions, never()).replaceRolePermissions(anyString(), any(), any());
+        verify(rolePermissionMapper, never()).delete(any());
     }
 
     @Test
     void emptyRequestRevokesAllUserPermissions() {
-        when(permissions.countCodes(any())).thenReturn(0L);
-
         RolePermissionsView saved = service.updateRole("USER", null, account("ADMIN"));
 
         assertEquals(List.of(), saved.permissions());
-        verify(permissions).replaceRolePermissions(eq("USER"), eq(Set.of()),
-                any(LocalDateTime.class));
+        verify(rolePermissionMapper).delete(any());
+        verify(rolePermissionMapper, never()).insert(anyCollection());
+    }
+
+    private static List<AuthRolePermissionEntity> rolePermissions(List<String> codes) {
+        return codes.stream().map(code -> {
+            AuthRolePermissionEntity entity = new AuthRolePermissionEntity();
+            entity.setRole("USER");
+            entity.setPermissionCode(code);
+            entity.setCreatedAt(LocalDateTime.of(2026, 10, 20, 9, 0));
+            return entity;
+        }).toList();
+    }
+
+    private static AuthPermissionEntity permission(String code) {
+        AuthPermissionEntity entity = new AuthPermissionEntity();
+        entity.setCode(code);
+        entity.setName(code);
+        entity.setModule(moduleOf(code));
+        entity.setDescription(code);
+        entity.setCreatedAt(LocalDateTime.of(2026, 10, 20, 9, 0));
+        return entity;
     }
 
     private static RolePermissionsView role(PermissionCatalogView view, String role) {

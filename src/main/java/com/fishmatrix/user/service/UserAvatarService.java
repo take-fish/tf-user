@@ -3,14 +3,14 @@ package com.fishmatrix.user.service;
 import com.fishmatrix.common.error.ApiException;
 import com.fishmatrix.common.storage.FileStorage;
 import com.fishmatrix.common.storage.StoredFile;
+import com.fishmatrix.user.converter.UserConverters;
+import com.fishmatrix.user.mapper.UserAccountMapper;
 import com.fishmatrix.user.model.UserAccount;
-import com.fishmatrix.user.repository.UserRepository;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -22,15 +22,14 @@ import org.springframework.web.multipart.MultipartFile;
  * 读取接口不校验登录态；写入只允许本人操作。
  */
 @Service
+@Slf4j
 public class UserAvatarService {
 
-    private static final Logger log = LoggerFactory.getLogger(UserAvatarService.class);
-
     private final FileStorage storage;
-    private final UserRepository users;
+    private final UserAccountMapper users;
     private final long maxBytes;
 
-    public UserAvatarService(FileStorage storage, UserRepository users,
+    public UserAvatarService(FileStorage storage, UserAccountMapper users,
             @Value("${fm.user.avatar.max-bytes:2097152}") long maxBytes) {
         this.storage = storage;
         this.users = users;
@@ -74,8 +73,7 @@ public class UserAvatarService {
         if (previousKey != null && !previousKey.equals(stored.storageKey())) {
             storage.delete(previousKey);
         }
-        return users.findById(account.id())
-                .orElseThrow(() -> ApiException.notFound("账号不存在"));
+        return require(account.id(), "账号不存在");
     }
 
     @Transactional
@@ -89,13 +87,11 @@ public class UserAvatarService {
                 log.warn("清理旧头像失败 key={}: {}", previousKey, exception.getMessage());
             }
         }
-        return users.findById(account.id())
-                .orElseThrow(() -> ApiException.notFound("账号不存在"));
+        return require(account.id(), "账号不存在");
     }
 
     public AvatarFile load(long userId) {
-        UserAccount account = users.findById(userId)
-                .orElseThrow(() -> ApiException.notFound("头像不存在"));
+        UserAccount account = require(userId, "头像不存在");
         if (!account.hasAvatar()) {
             throw ApiException.notFound("头像不存在");
         }
@@ -107,6 +103,15 @@ public class UserAvatarService {
     }
 
     public record AvatarFile(Resource resource, String contentType) {
+    }
+
+    /** 读取账号并转成对外模型；不存在时按调用方语义抛出 404。 */
+    private UserAccount require(long userId, String message) {
+        UserAccount account = UserConverters.toModel(users.selectById(userId));
+        if (account == null) {
+            throw ApiException.notFound(message);
+        }
+        return account;
     }
 
     private static String extensionOf(String contentType) {

@@ -7,6 +7,7 @@ import com.fishmatrix.user.model.RegisterResult;
 import com.fishmatrix.user.model.UserView;
 import com.fishmatrix.user.service.AuthService;
 import com.fishmatrix.user.service.UserAccountService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,15 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/user/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final UserAccountService accounts;
     private final AuthService auth;
-
-    public AuthController(UserAccountService accounts, AuthService auth) {
-        this.accounts = accounts;
-        this.auth = auth;
-    }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)

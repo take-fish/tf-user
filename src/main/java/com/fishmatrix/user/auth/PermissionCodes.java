@@ -22,6 +22,9 @@ public final class PermissionCodes {
     public static final String MUSIC_CATEGORY_MANAGE = "music.category.manage";
     public static final String MUSIC_CONTENT_MANAGE_ANY = "music.content.manage.any";
 
+    public static final String GAME_LEADERBOARD_MANAGE = "game.leaderboard.manage";
+    public static final String GAME_RECORD_MANAGE = "game.record.manage";
+
     public static final List<String> ALL = List.of(
             USER_ACCOUNT_MANAGE,
             USER_ROLE_MANAGE,
@@ -33,7 +36,9 @@ public final class PermissionCodes {
             MUSIC_PUBLIC_UPLOAD,
             MUSIC_PRIVATE_MANAGE,
             MUSIC_CATEGORY_MANAGE,
-            MUSIC_CONTENT_MANAGE_ANY);
+            MUSIC_CONTENT_MANAGE_ANY,
+            GAME_LEADERBOARD_MANAGE,
+            GAME_RECORD_MANAGE);
 
     /** 普通用户默认拥有的权限。 */
     public static final List<String> DEFAULT_USER = List.of(

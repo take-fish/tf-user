@@ -1,25 +1,21 @@
 package com.fishmatrix.user.service;
 
 import com.fishmatrix.common.error.ApiException;
+import com.fishmatrix.user.converter.UserConverters;
+import com.fishmatrix.user.mapper.UserAccountMapper;
 import com.fishmatrix.user.model.UserAccount;
 import com.fishmatrix.user.model.UserView;
-import com.fishmatrix.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class AuthService {
 
     private final SessionService sessions;
-    private final UserRepository users;
+    private final UserAccountMapper users;
     private final PermissionService permissions;
-
-    public AuthService(SessionService sessions, UserRepository users,
-            PermissionService permissions) {
-        this.sessions = sessions;
-        this.users = users;
-        this.permissions = permissions;
-    }
 
     /**
      * 登录态的唯一可信来源。网关和各业务服务通过 {@code /auth/me} 拿到这份快照，
@@ -38,11 +34,11 @@ public class AuthService {
         SessionService.SessionUser session = sessions.resolve(token)
                 .orElseThrow(AuthService::unauthorized);
 
-        UserAccount account = users.findById(session.userId())
-                .orElseThrow(() -> {
-                    sessions.revoke(token);
-                    return unauthorized();
-                });
+        UserAccount account = findById(session.userId());
+        if (account == null) {
+            sessions.revoke(token);
+            throw unauthorized();
+        }
 
         if (!account.isActive()) {
             sessions.revoke(token);
@@ -70,6 +66,10 @@ public class AuthService {
 
     public void logout(String authorization) {
         sessions.revoke(SessionService.bearerToken(authorization));
+    }
+
+    public UserAccount findById(long id) {
+        return UserConverters.toModel(users.selectById(id));
     }
 
     private static ApiException unauthorized() {
