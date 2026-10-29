@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fishmatrix.common.error.ApiException;
+import com.fishmatrix.user.converter.UserConverters;
 import com.fishmatrix.user.entity.UserAccountEntity;
 import com.fishmatrix.user.mapper.UserAccountMapper;
 import com.fishmatrix.user.model.LoginRequest;
@@ -49,6 +50,9 @@ class UserAccountServiceTests {
     @Mock
     private PermissionService permissions;
 
+    @Mock
+    private AuthService auth;
+
     private UserAccountService service;
 
     @BeforeEach
@@ -58,7 +62,7 @@ class UserAccountServiceTests {
                     UserAccount account = invocation.getArgument(0);
                     return account.toView(List.of(account.role()), List.of());
                 });
-        service = new UserAccountService(users, passwordEncoder, sessions, permissions);
+        service = new UserAccountService(users, passwordEncoder, sessions, permissions, auth);
     }
 
     @Test
@@ -129,14 +133,18 @@ class UserAccountServiceTests {
 
     @Test
     void logsInActiveUserAndIssuesSession() {
-        when(users.selectOne(any()))
-                .thenReturn(UserFixtures.account(5, "小明", "USER", "ACTIVE"));
+        UserAccountEntity entity = UserFixtures.account(5, "小明", "USER", "ACTIVE");
+        UserAccount account = UserConverters.toModel(entity);
+        when(users.selectOne(any())).thenReturn(entity);
         when(passwordEncoder.matches("secret12", "hash")).thenReturn(true);
-        when(sessions.create(5, "USER")).thenReturn("token-abc");
+        when(sessions.create(5, "USER")).thenReturn("refresh-abc");
+        when(auth.issueTokens(any(), eq("refresh-abc"))).thenReturn(new LoginResult(
+                "jwt-abc", "refresh-abc", 3600, account.toView(List.of("USER"), List.of())));
 
         LoginResult result = service.login(new LoginRequest("小明", "secret12"));
 
-        assertEquals("token-abc", result.token());
+        assertEquals("jwt-abc", result.token());
+        assertEquals("refresh-abc", result.refreshToken());
         assertEquals("小明", result.user().username());
         verify(users).touchLastLogin(eq(5L), any(LocalDateTime.class));
     }
