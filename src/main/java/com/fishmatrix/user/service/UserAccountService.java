@@ -43,6 +43,7 @@ public class UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessions;
     private final PermissionService permissions;
+    private final AuthService auth;
 
     @Transactional
     public RegisterResult register(RegisterRequest request) {
@@ -105,8 +106,9 @@ public class UserAccountService {
         }
 
         users.touchLastLogin(account.id(), LocalDateTime.now());
-        String token = sessions.create(account.id(), account.role());
-        return new LoginResult(token, permissions.view(account));
+        // 刷新令牌进 Redis（可撤销），访问令牌是本地可验签的 JWT（短有效期）
+        String refreshToken = sessions.create(account.id(), account.role());
+        return auth.issueTokens(account, refreshToken);
     }
 
     public UserPage listUsers(String status, String query, int page, int size) {

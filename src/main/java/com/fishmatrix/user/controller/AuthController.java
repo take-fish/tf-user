@@ -2,6 +2,7 @@ package com.fishmatrix.user.controller;
 
 import com.fishmatrix.user.model.LoginRequest;
 import com.fishmatrix.user.model.LoginResult;
+import com.fishmatrix.user.model.RefreshRequest;
 import com.fishmatrix.user.model.RegisterRequest;
 import com.fishmatrix.user.model.RegisterResult;
 import com.fishmatrix.user.model.UserView;
@@ -50,5 +51,13 @@ public class AuthController {
     public void logout(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         auth.logout(authorization);
+    }
+
+    /**
+     * 用刷新令牌换新的访问令牌。访问令牌有效期短，客户端在 401 时静默调用这里。
+     */
+    @PostMapping("/refresh")
+    public LoginResult refresh(@RequestBody RefreshRequest request) {
+        return auth.refresh(request.refreshToken());
     }
 }
