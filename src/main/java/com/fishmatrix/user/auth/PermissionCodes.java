@@ -25,6 +25,13 @@ public final class PermissionCodes {
     public static final String GAME_LEADERBOARD_MANAGE = "game.leaderboard.manage";
     public static final String GAME_RECORD_MANAGE = "game.record.manage";
 
+    /** 智能助手（tf-agent）：对话、知识库管理、展示管理、管理台。 */
+    public static final String AGENT_CHAT_USE = "agent.chat.use";
+    public static final String AGENT_KB_MANAGE = "agent.kb.manage";
+    public static final String AGENT_PROFILE_MANAGE = "agent.profile.manage";
+    public static final String AGENT_CONSOLE_VIEW = "agent.console.view";
+    public static final String AGENT_DEPLOY_TRIGGER = "agent.deploy.trigger";
+
     public static final List<String> ALL = List.of(
             USER_ACCOUNT_MANAGE,
             USER_ROLE_MANAGE,
@@ -38,14 +45,20 @@ public final class PermissionCodes {
             MUSIC_CATEGORY_MANAGE,
             MUSIC_CONTENT_MANAGE_ANY,
             GAME_LEADERBOARD_MANAGE,
-            GAME_RECORD_MANAGE);
+            GAME_RECORD_MANAGE,
+            AGENT_CHAT_USE,
+            AGENT_KB_MANAGE,
+            AGENT_PROFILE_MANAGE,
+            AGENT_CONSOLE_VIEW,
+            AGENT_DEPLOY_TRIGGER);
 
     /** 普通用户默认拥有的权限。 */
     public static final List<String> DEFAULT_USER = List.of(
             READER_PUBLIC_UPLOAD,
             READER_PRIVATE_MANAGE,
             MUSIC_PUBLIC_UPLOAD,
-            MUSIC_PRIVATE_MANAGE);
+            MUSIC_PRIVATE_MANAGE,
+            AGENT_CHAT_USE);
 
     private PermissionCodes() {
     }
